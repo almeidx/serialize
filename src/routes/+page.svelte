@@ -20,9 +20,16 @@
 	let stats = $state<Stats | null>(null);
 	let statsCollapsed = $state(false);
 
-	let theme = $state<'light' | 'dark'>('dark');
+	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
 	let isDragging = $state(false);
+
+	function getInitialTheme(): 'light' | 'dark' {
+		if (!browser) return 'dark';
+		const stored = localStorage.getItem('theme');
+		if (stored === 'light' || stored === 'dark') return stored;
+		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	}
 
 	const phpExample = `a:4:{s:4:"user";O:4:"User":2:{s:4:"name";s:5:"Alice";s:5:"email";s:17:"alice@example.com";}s:5:"roles";a:2:{i:0;s:5:"admin";i:1;s:4:"user";}s:9:"loginTime";i:1704067200;s:8:"isActive";b:1;}`;
 
@@ -40,18 +47,11 @@
 		2
 	);
 
-	if (browser) {
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		theme = prefersDark ? 'dark' : 'light';
-
-		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-			theme = e.matches ? 'dark' : 'light';
-		});
-	}
-
 	$effect(() => {
+		const currentTheme = theme;
 		if (browser) {
-			document.documentElement.classList.toggle('dark', theme === 'dark');
+			document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+			localStorage.setItem('theme', currentTheme);
 		}
 	});
 
