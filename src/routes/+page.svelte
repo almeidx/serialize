@@ -290,7 +290,7 @@
 				style="width: {splitPosition}%"
 			>
 				<div
-					class="px-3 py-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
+					class="h-8 px-3 flex items-center text-xs font-medium text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
 				>
 					Input ({inputMode === 'php' ? 'PHP Serialized' : 'JSON'})
 				</div>
@@ -317,7 +317,7 @@
 			<!-- Right: Output (Tree or JSON) -->
 			<div class="flex-1 flex flex-col overflow-hidden">
 				<div
-					class="px-3 py-1.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
+					class="h-8 px-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
 				>
 					<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Output</span>
 					<div class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden">

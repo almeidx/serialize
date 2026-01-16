@@ -23,7 +23,7 @@
 >
 	<button
 		onclick={oncollapse}
-		class="p-2 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-200 dark:border-zinc-700"
+		class="h-8 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-200 dark:border-zinc-700"
 		title={collapsed ? 'Expand stats' : 'Collapse stats'}
 	>
 		<svg
