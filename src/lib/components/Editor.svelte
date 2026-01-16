@@ -13,8 +13,8 @@
 	let { value, language = 'json', readonly = false, onchange, theme = 'dark' }: Props = $props();
 
 	let container: HTMLDivElement;
-	let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
-	let monaco: typeof Monaco | null = null;
+	let editor = $state<Monaco.editor.IStandaloneCodeEditor | null>(null);
+	let monaco = $state<typeof Monaco | null>(null);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -62,17 +62,26 @@
 	});
 
 	$effect(() => {
-		if (editor && monaco) {
-			const currentValue = editor.getValue();
-			if (value !== currentValue) {
-				editor.setValue(value);
-			}
+		const newValue = value;
+		const ed = editor;
+		if (ed && monaco && newValue !== ed.getValue()) {
+			ed.setValue(newValue);
 		}
 	});
 
 	$effect(() => {
 		if (editor && monaco) {
 			monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+		}
+	});
+
+	$effect(() => {
+		const lang = language;
+		if (editor && monaco) {
+			const model = editor.getModel();
+			if (model) {
+				monaco.editor.setModelLanguage(model, lang);
+			}
 		}
 	});
 </script>
