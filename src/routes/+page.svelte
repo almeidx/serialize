@@ -15,10 +15,13 @@
 	let inputMode = $state<InputMode>('php');
 	let outputView = $state<OutputView>('tree');
 	let inputValue = $state('');
-	let parsedData = $state<JsonValue | null>(null);
+	let parsedData = $state<JsonValue | undefined>(undefined);
 	let parseError = $state<Error | null>(null);
 	let stats = $state<Stats | null>(null);
 	let statsCollapsed = $state(false);
+
+	const defaultTreeData: JsonValue = {};
+	const treeData = $derived(parsedData !== undefined ? parsedData : defaultTreeData);
 
 	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
@@ -57,7 +60,7 @@
 
 	function processInput() {
 		if (!inputValue.trim()) {
-			parsedData = null;
+			parsedData = undefined;
 			parseError = null;
 			stats = null;
 			return;
@@ -78,7 +81,7 @@
 			parseError = null;
 		} catch (e) {
 			parseError = e as Error;
-			parsedData = null;
+			parsedData = undefined;
 			stats = null;
 		}
 	}
@@ -104,18 +107,18 @@
 	}
 
 	function handleTreeChange(op: TreeOperation) {
-		if (!parsedData) return;
+		const currentData = parsedData !== undefined ? parsedData : {};
 
 		let updated: JsonValue;
 		switch (op.type) {
 			case 'set':
-				updated = setValueAtPath(parsedData, op.path, op.value);
+				updated = setValueAtPath(currentData, op.path, op.value);
 				break;
 			case 'delete':
-				updated = deleteAtPath(parsedData, op.path);
+				updated = deleteAtPath(currentData, op.path);
 				break;
 			case 'add':
-				updated = addAtPath(parsedData, op.path, op.key, op.value);
+				updated = addAtPath(currentData, op.path, op.key, op.value);
 				break;
 		}
 		parsedData = updated;
@@ -235,7 +238,7 @@
 	}
 
 	function updateInputFromParsed() {
-		if (!parsedData) return;
+		if (parsedData === undefined) return;
 
 		try {
 			if (inputMode === 'php') {
@@ -261,17 +264,16 @@
 
 	function clearInput() {
 		inputValue = '';
-		parsedData = null;
+		parsedData = undefined;
 		parseError = null;
 		stats = null;
 	}
 
-	const jsonPretty = $derived(parsedData ? JSON.stringify(parsedData, null, 2) : '');
-	const jsonMinified = $derived(parsedData ? JSON.stringify(parsedData) : '');
+	const jsonPretty = $derived(JSON.stringify(treeData, null, 2));
+	const jsonMinified = $derived(JSON.stringify(treeData));
 	const phpSerialized = $derived(() => {
-		if (!parsedData) return '';
 		try {
-			return phpSerialize(fromJson(parsedData));
+			return phpSerialize(fromJson(treeData));
 		} catch {
 			return '';
 		}
@@ -346,7 +348,15 @@
 
 		<div class="flex-1"></div>
 
-		<CopyMenu {jsonPretty} {jsonMinified} phpSerialized={phpSerialized()} disabled={!parsedData} />
+		<CopyMenu
+			{jsonPretty}
+			{jsonMinified}
+			phpSerialized={phpSerialized()}
+			disabled={parsedData === undefined &&
+				typeof treeData === 'object' &&
+				treeData !== null &&
+				Object.keys(treeData).length === 0}
+		/>
 
 		<button
 			onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}
@@ -434,15 +444,9 @@
 				</div>
 
 				<div class="flex-1 overflow-hidden">
-					{#if !parsedData}
-						<div
-							class="h-full flex items-center justify-center text-zinc-400 dark:text-zinc-500 text-sm"
-						>
-							Enter data on the left to see output
-						</div>
-					{:else if outputView === 'tree'}
+					{#if outputView === 'tree'}
 						<div class="h-full overflow-auto p-4">
-							<EditableTreeView data={parsedData} onchange={handleTreeChange} />
+							<EditableTreeView data={treeData} onchange={handleTreeChange} />
 						</div>
 					{:else}
 						<Editor value={jsonPretty} language="json" {theme} onchange={handleOutputJsonChange} />
