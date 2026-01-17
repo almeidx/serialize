@@ -2,19 +2,28 @@
 	import type { JsonValue } from '../converter/json';
 	import EditableTreeNode from './EditableTreeView.svelte';
 
+	export type TreeOperation =
+		| { type: 'set'; path: string; value: JsonValue }
+		| { type: 'delete'; path: string }
+		| { type: 'add'; path: string; key: string; value: JsonValue };
+
 	interface Props {
 		data: JsonValue;
 		path?: string;
 		keyName?: string | number | null;
 		depth?: number;
-		onchange?: (path: string, value: JsonValue) => void;
+		onchange?: (op: TreeOperation) => void;
+		ondelete?: () => void;
 	}
 
-	let { data, path = '', keyName = null, depth = 0, onchange }: Props = $props();
+	let { data, path = '', keyName = null, depth = 0, onchange, ondelete }: Props = $props();
 
 	let expanded = $state(depth < 2);
 	let editing = $state(false);
 	let editValue = $state('');
+	let showTypeMenu = $state(false);
+	let addingKey = $state(false);
+	let newKeyName = $state('');
 
 	function getType(value: JsonValue): string {
 		if (value === null) return 'null';
@@ -83,7 +92,7 @@
 	}
 
 	function isExpandable(value: JsonValue): boolean {
-		if (Array.isArray(value)) return value.length > 0;
+		if (Array.isArray(value)) return true;
 		if (typeof value === 'object' && value !== null) {
 			const obj = value as Record<string, JsonValue>;
 			if (obj.__php_type__ === 'string' || obj.__php_type__ === 'reference') return false;
@@ -92,12 +101,12 @@
 		return false;
 	}
 
-	function isEditable(type: string): boolean {
+	function isScalar(type: string): boolean {
 		return ['string', 'number', 'boolean', 'null'].includes(type);
 	}
 
 	function startEdit() {
-		if (!isEditable(type)) return;
+		if (!isScalar(type)) return;
 		editing = true;
 		editValue = type === 'string' ? (data as string) : JSON.stringify(data);
 	}
@@ -116,7 +125,7 @@
 				return;
 			}
 		}
-		onchange(path, newValue);
+		onchange({ type: 'set', path, value: newValue });
 	}
 
 	function cancelEdit() {
@@ -132,8 +141,75 @@
 		}
 	}
 
-	function handleChildChange(childPath: string, value: JsonValue) {
-		onchange?.(childPath, value);
+	function changeType(newType: string) {
+		showTypeMenu = false;
+		if (!onchange) return;
+
+		let newValue: JsonValue;
+		switch (newType) {
+			case 'string':
+				newValue = type === 'number' ? String(data) : '';
+				break;
+			case 'number':
+				newValue = type === 'string' ? Number(data) || 0 : 0;
+				break;
+			case 'boolean':
+				newValue = Boolean(data);
+				break;
+			case 'null':
+				newValue = null;
+				break;
+			case 'array':
+				newValue = [];
+				break;
+			case 'object':
+				newValue = {};
+				break;
+			default:
+				return;
+		}
+		onchange({ type: 'set', path, value: newValue });
+	}
+
+	function handleDelete() {
+		ondelete?.();
+	}
+
+	function startAddKey() {
+		addingKey = true;
+		newKeyName = type === 'array' ? String(children.length) : '';
+		expanded = true;
+	}
+
+	function commitAddKey() {
+		addingKey = false;
+		if (!onchange || !newKeyName.trim()) return;
+		onchange({ type: 'add', path, key: newKeyName.trim(), value: '' });
+		newKeyName = '';
+	}
+
+	function cancelAddKey() {
+		addingKey = false;
+		newKeyName = '';
+	}
+
+	function handleAddKeyKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitAddKey();
+		} else if (e.key === 'Escape') {
+			cancelAddKey();
+		}
+	}
+
+	function handleChildChange(op: TreeOperation) {
+		onchange?.(op);
+	}
+
+	function handleChildDelete(childKey: string | number) {
+		if (!onchange) return;
+		const childPath = path ? `${path}.${childKey}` : String(childKey);
+		onchange({ type: 'delete', path: childPath });
 	}
 
 	const type = $derived(getType(data));
@@ -141,8 +217,14 @@
 	const preview = $derived(getPreview(data, type));
 	const children = $derived(getChildren(data));
 	const expandable = $derived(isExpandable(data));
-	const editable = $derived(isEditable(type));
+	const canAddChildren = $derived(type === 'array' || type === 'object');
 </script>
+
+<svelte:window
+	onclick={(e) => {
+		if (showTypeMenu) showTypeMenu = false;
+	}}
+/>
 
 <div class="font-mono text-sm" style="padding-left: {depth > 0 ? 16 : 0}px">
 	<div class="flex items-start gap-1 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded group">
@@ -218,6 +300,92 @@
 			{:else if type === 'reference'}
 				<span class="text-pink-600 dark:text-pink-400 italic">{displayValue}</span>
 			{/if}
+
+			<!-- Action buttons -->
+			<span class="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1">
+				<!-- Type change button -->
+				<div class="relative">
+					<button
+						onclick={(e) => {
+							e.stopPropagation();
+							showTypeMenu = !showTypeMenu;
+						}}
+						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+						title="Change type"
+					>
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+							/>
+						</svg>
+					</button>
+					{#if showTypeMenu}
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div
+							class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-[100px]"
+							onclick={(e) => e.stopPropagation()}
+						>
+							{#each ['string', 'number', 'boolean', 'null', 'array', 'object'] as t}
+								<button
+									onclick={() => changeType(t)}
+									class="w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 {type ===
+									t
+										? 'text-blue-600 dark:text-blue-400 font-medium'
+										: 'text-zinc-700 dark:text-zinc-300'}"
+								>
+									{t}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				<!-- Add child button (for arrays/objects) -->
+				{#if canAddChildren}
+					<button
+						onclick={(e) => {
+							e.stopPropagation();
+							startAddKey();
+						}}
+						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+						title="Add item"
+					>
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 4v16m8-8H4"
+							/>
+						</svg>
+					</button>
+				{/if}
+
+				<!-- Delete button -->
+				{#if ondelete}
+					<button
+						onclick={(e) => {
+							e.stopPropagation();
+							handleDelete();
+						}}
+						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+						title="Delete"
+					>
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					</button>
+				{/if}
+			</span>
 		</span>
 	</div>
 
@@ -230,8 +398,27 @@
 					path={path ? `${path}.${child.key}` : String(child.key)}
 					depth={depth + 1}
 					onchange={handleChildChange}
+					ondelete={() => handleChildDelete(child.key)}
 				/>
 			{/each}
+
+			<!-- Add key input -->
+			{#if addingKey}
+				<div class="flex items-center gap-1 py-0.5" style="padding-left: 16px">
+					<span class="w-4 shrink-0"></span>
+					<input
+						type="text"
+						bind:value={newKeyName}
+						onblur={cancelAddKey}
+						onkeydown={handleAddKeyKeydown}
+						placeholder={type === 'array' ? 'index' : 'key'}
+						class="w-24 px-1 py-0.5 text-xs font-mono bg-white dark:bg-zinc-900 border border-blue-500 rounded outline-none"
+						autofocus
+					/>
+					<span class="text-zinc-400">:</span>
+					<span class="text-zinc-400 text-xs italic">""</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

@@ -3,7 +3,7 @@
 	import { parse, serialize as phpSerialize } from '$lib/parser';
 	import { toJson, fromJson, type JsonValue } from '$lib/converter';
 	import { computeStats, type Stats } from '$lib/stats';
-	import EditableTreeView from '$lib/components/EditableTreeView.svelte';
+	import EditableTreeView, { type TreeOperation } from '$lib/components/EditableTreeView.svelte';
 	import Editor from '$lib/components/Editor.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -103,10 +103,21 @@
 		}
 	}
 
-	function handleTreeChange(path: string, newValue: JsonValue) {
+	function handleTreeChange(op: TreeOperation) {
 		if (!parsedData) return;
 
-		const updated = setValueAtPath(parsedData, path, newValue);
+		let updated: JsonValue;
+		switch (op.type) {
+			case 'set':
+				updated = setValueAtPath(parsedData, op.path, op.value);
+				break;
+			case 'delete':
+				updated = deleteAtPath(parsedData, op.path);
+				break;
+			case 'add':
+				updated = addAtPath(parsedData, op.path, op.key, op.value);
+				break;
+		}
 		parsedData = updated;
 		updateInputFromParsed();
 	}
@@ -136,6 +147,88 @@
 			(current.data as Record<string, JsonValue>)[lastKey] = value;
 		} else {
 			current[lastKey] = value;
+		}
+
+		return clone;
+	}
+
+	function deleteAtPath(obj: JsonValue, path: string): JsonValue {
+		if (!path) return obj;
+
+		const parts = path.split('.');
+		const clone = JSON.parse(JSON.stringify(obj));
+
+		function deleteFromContainer(container: Record<string, JsonValue>, key: string) {
+			if (Array.isArray(container)) {
+				container.splice(parseInt(key), 1);
+			} else if (container.__php_type__ === 'object' || container.__php_type__ === 'array') {
+				delete (container.data as Record<string, JsonValue>)[key];
+				if (container.__php_original_keys__) {
+					const keys = container.__php_original_keys__ as Array<{ type: string; value: string }>;
+					const idx = keys.findIndex((k) => String(k.value) === key);
+					if (idx !== -1) keys.splice(idx, 1);
+				}
+			} else {
+				delete container[key];
+			}
+		}
+
+		if (parts.length === 1) {
+			deleteFromContainer(clone, parts[0]);
+			return clone;
+		}
+
+		let current: Record<string, JsonValue> = clone;
+		for (let i = 0; i < parts.length - 1; i++) {
+			const key = parts[i];
+			if (Array.isArray(current)) {
+				current = current[parseInt(key)] as Record<string, JsonValue>;
+			} else if (current.__php_type__ === 'object' || current.__php_type__ === 'array') {
+				current = (current.data as Record<string, JsonValue>)[key] as Record<string, JsonValue>;
+			} else {
+				current = current[key] as Record<string, JsonValue>;
+			}
+		}
+
+		deleteFromContainer(current, parts[parts.length - 1]);
+		return clone;
+	}
+
+	function addAtPath(obj: JsonValue, path: string, key: string, value: JsonValue): JsonValue {
+		const clone = JSON.parse(JSON.stringify(obj));
+
+		let target: Record<string, JsonValue> | JsonValue[];
+		if (!path) {
+			target = clone;
+		} else {
+			const parts = path.split('.');
+			let current: Record<string, JsonValue> = clone;
+			for (const part of parts) {
+				if (Array.isArray(current)) {
+					current = current[parseInt(part)] as Record<string, JsonValue>;
+				} else if (current.__php_type__ === 'object' || current.__php_type__ === 'array') {
+					current = (current.data as Record<string, JsonValue>)[part] as Record<string, JsonValue>;
+				} else {
+					current = current[part] as Record<string, JsonValue>;
+				}
+			}
+			target = current;
+		}
+
+		if (Array.isArray(target)) {
+			const index = parseInt(key);
+			if (index >= target.length) {
+				target.push(value);
+			} else {
+				target.splice(index, 0, value);
+			}
+		} else if (
+			(target as Record<string, JsonValue>).__php_type__ === 'object' ||
+			(target as Record<string, JsonValue>).__php_type__ === 'array'
+		) {
+			((target as Record<string, JsonValue>).data as Record<string, JsonValue>)[key] = value;
+		} else {
+			(target as Record<string, JsonValue>)[key] = value;
 		}
 
 		return clone;

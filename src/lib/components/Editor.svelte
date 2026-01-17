@@ -20,9 +20,10 @@
 
 	onMount(async () => {
 		const loader = await import('@monaco-editor/loader');
-		monaco = await loader.default.init();
+		const m = await loader.default.init();
+		monaco = m;
 
-		editor = monaco.editor.create(container, {
+		const ed = m.editor.create(container, {
 			value,
 			language,
 			theme: theme === 'dark' ? 'vs-dark' : 'vs',
@@ -36,22 +37,21 @@
 			wordWrap: 'on',
 			padding: { top: 8, bottom: 8 }
 		});
+		editor = ed;
 
-		editor.onDidChangeModelContent(() => {
-			if (onchange && editor) {
+		ed.onDidChangeModelContent(() => {
+			if (onchange) {
 				if (debounceTimer) clearTimeout(debounceTimer);
 				debounceTimer = setTimeout(() => {
-					if (editor) {
-						onchange(editor.getValue());
-					}
+					onchange(ed.getValue());
 				}, 500);
 			}
 		});
 
-		editor.onDidBlurEditorWidget(() => {
-			if (onchange && editor) {
+		ed.onDidBlurEditorWidget(() => {
+			if (onchange) {
 				if (debounceTimer) clearTimeout(debounceTimer);
-				onchange(editor.getValue());
+				onchange(ed.getValue());
 			}
 		});
 	});
