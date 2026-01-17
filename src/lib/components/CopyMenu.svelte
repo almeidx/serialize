@@ -32,23 +32,24 @@
 	<button
 		onclick={() => (open = !open)}
 		{disabled}
-		class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
-			bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
-			hover:bg-zinc-200 dark:hover:bg-zinc-600
+		class="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border
+			border-zinc-200 dark:border-zinc-700
+			text-zinc-500 dark:text-zinc-400
+			hover:bg-zinc-100 dark:hover:bg-zinc-800
 			disabled:opacity-50 disabled:cursor-not-allowed
 			transition-colors"
 	>
 		{#if copied}
-			<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+			<svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
 				<path
 					fill-rule="evenodd"
 					d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
 					clip-rule="evenodd"
 				/>
 			</svg>
-			<span>Copied!</span>
+			<span>Copied</span>
 		{:else}
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path
 					stroke-linecap="round"
 					stroke-linejoin="round"
@@ -57,7 +58,7 @@
 				/>
 			</svg>
 			<span>Copy</span>
-			<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+			<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
 				<path
 					fill-rule="evenodd"
 					d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"

@@ -348,16 +348,6 @@
 
 		<div class="flex-1"></div>
 
-		<CopyMenu
-			{jsonPretty}
-			{jsonMinified}
-			phpSerialized={phpSerialized()}
-			disabled={parsedData === undefined &&
-				typeof treeData === 'object' &&
-				treeData !== null &&
-				Object.keys(treeData).length === 0}
-		/>
-
 		<button
 			onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}
 			class="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
@@ -423,7 +413,17 @@
 					class="h-8 px-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
 				>
 					<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Output</span>
-					<div class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+					<div class="flex items-center gap-2">
+						<CopyMenu
+							{jsonPretty}
+							{jsonMinified}
+							phpSerialized={phpSerialized()}
+							disabled={parsedData === undefined &&
+								typeof treeData === 'object' &&
+								treeData !== null &&
+								Object.keys(treeData).length === 0}
+						/>
+						<div class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden">
 						<button
 							onclick={() => (outputView = 'tree')}
 							class="px-2 py-0.5 text-xs font-medium transition-colors {outputView === 'tree'
@@ -440,6 +440,7 @@
 						>
 							JSON
 						</button>
+						</div>
 					</div>
 				</div>
 
