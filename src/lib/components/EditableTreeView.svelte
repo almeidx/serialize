@@ -264,7 +264,7 @@
 					bind:value={editValue}
 					onblur={commitEdit}
 					onkeydown={handleKeydown}
-					class="flex-1 min-w-[100px] px-1 py-0.5 text-sm font-mono bg-white dark:bg-zinc-900 border border-blue-500 rounded outline-none"
+					class="flex-1 min-w-25 px-1 py-0.5 text-sm font-mono bg-white dark:bg-zinc-900 border border-blue-500 rounded outline-none"
 					autofocus
 				/>
 			{:else if expandable}
@@ -328,7 +328,7 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div
-							class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-[100px]"
+							class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-25"
 							onclick={(e) => e.stopPropagation()}
 						>
 							{#each ['string', 'number', 'boolean', 'null', 'array', 'object'] as t}

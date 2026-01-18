@@ -86,4 +86,4 @@
 	});
 </script>
 
-<div bind:this={container} class="w-full h-full min-h-[200px]"></div>
+<div bind:this={container} class="w-full h-full min-h-50"></div>
