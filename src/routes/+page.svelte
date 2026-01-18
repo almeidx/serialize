@@ -240,6 +240,8 @@
 	function updateInputFromParsed() {
 		if (parsedData === undefined) return;
 
+		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
+
 		try {
 			if (inputMode === 'php') {
 				const phpValue = fromJson(parsedData);
@@ -258,11 +260,13 @@
 	}
 
 	function loadExample() {
+		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
 		inputValue = inputMode === 'php' ? phpExample : jsonExample;
 		processInput();
 	}
 
 	function clearInput() {
+		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
 		inputValue = '';
 		parsedData = undefined;
 		parseError = null;
