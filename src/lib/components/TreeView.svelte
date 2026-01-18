@@ -10,6 +10,7 @@
 
 	let { data, key = null, depth = 0 }: Props = $props();
 
+	// svelte-ignore state_referenced_locally - depth is fixed per tree node instance
 	let expanded = $state(depth < 1);
 
 	function getType(value: JsonValue): string {

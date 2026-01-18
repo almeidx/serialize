@@ -18,6 +18,7 @@
 
 	let { data, path = '', keyName = null, depth = 0, onchange, ondelete }: Props = $props();
 
+	// svelte-ignore state_referenced_locally - depth is fixed per tree node instance
 	let expanded = $state(depth < 2);
 	let editing = $state(false);
 	let editValue = $state('');
@@ -257,6 +258,7 @@
 			{/if}
 
 			{#if editing}
+				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					type="text"
 					bind:value={editValue}
@@ -406,6 +408,7 @@
 			{#if addingKey}
 				<div class="flex items-center gap-1 py-0.5" style="padding-left: 16px">
 					<span class="w-4 shrink-0"></span>
+					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						type="text"
 						bind:value={newKeyName}
