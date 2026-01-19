@@ -17,9 +17,9 @@
 </script>
 
 <aside
-	class="bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 transition-all duration-200 {collapsed
+	class="hidden md:flex bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 transition-all duration-200 {collapsed
 		? 'w-10'
-		: 'w-56'} shrink-0 flex flex-col"
+		: 'w-56'} shrink-0 flex-col"
 >
 	<button
 		onclick={oncollapse}
