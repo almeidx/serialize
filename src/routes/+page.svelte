@@ -275,7 +275,7 @@
 
 	const jsonPretty = $derived(JSON.stringify(treeData, null, 2));
 	const jsonMinified = $derived(JSON.stringify(treeData));
-	const phpSerialized = $derived(() => {
+	const phpSerialized = $derived.by(() => {
 		try {
 			return phpSerialize(fromJson(treeData));
 		} catch {
@@ -452,7 +452,7 @@
 						<CopyMenu
 							{jsonPretty}
 							{jsonMinified}
-							phpSerialized={phpSerialized()}
+							{phpSerialized}
 							disabled={parsedData === undefined &&
 								typeof treeData === 'object' &&
 								treeData !== null &&
