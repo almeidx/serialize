@@ -42,4 +42,4 @@ pnpm preview
 
 ## License
 
-[MIT](./LICENSE.md)
+[GNU AGPLv3](LICENSE)
