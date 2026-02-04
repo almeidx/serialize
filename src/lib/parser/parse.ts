@@ -271,16 +271,34 @@ class Parser {
 	}
 
 	private readBytes(length: number): string {
-		if (this.position + length > this.input.length) {
-			throw new ParseError(
-				`Expected ${length} bytes, but only ${this.input.length - this.position} available`,
-				this.position,
-				this.getContext()
-			);
+		const start = this.position;
+		let byteCount = 0;
+
+		while (byteCount < length) {
+			if (this.position >= this.input.length) {
+				throw new ParseError(
+					`Expected ${length} bytes, but only ${byteCount} available`,
+					this.position,
+					this.getContext()
+				);
+			}
+
+			const code = this.input.charCodeAt(this.position);
+			if (code <= 0x7f) {
+				byteCount += 1;
+			} else if (code <= 0x7ff) {
+				byteCount += 2;
+			} else if (code >= 0xd800 && code <= 0xdbff) {
+				byteCount += 4;
+				this.position++;
+			} else {
+				byteCount += 3;
+			}
+
+			this.position++;
 		}
-		const result = this.input.slice(this.position, this.position + length);
-		this.position += length;
-		return result;
+
+		return this.input.slice(start, this.position);
 	}
 
 	getContext(): string {

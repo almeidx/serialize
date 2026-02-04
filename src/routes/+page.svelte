@@ -87,9 +87,10 @@
 
 		try {
 			if (inputMode === 'php') {
-				const phpValue = parse(inputValue);
+				const trimmed = inputValue.trim();
+				const phpValue = parse(trimmed);
 				parsedData = toJson(phpValue);
-				stats = computeStats(phpValue, inputValue);
+				stats = computeStats(phpValue, trimmed);
 			} else {
 				const json = JSON.parse(inputValue);
 				parsedData = json;

@@ -4,6 +4,24 @@ export function serialize(value: PhpValue): string {
 	return serializeValue(value);
 }
 
+function utf8ByteLength(str: string): number {
+	let bytes = 0;
+	for (let i = 0; i < str.length; i++) {
+		const code = str.charCodeAt(i);
+		if (code <= 0x7f) {
+			bytes += 1;
+		} else if (code <= 0x7ff) {
+			bytes += 2;
+		} else if (code >= 0xd800 && code <= 0xdbff) {
+			bytes += 4;
+			i++;
+		} else {
+			bytes += 3;
+		}
+	}
+	return bytes;
+}
+
 function serializeValue(value: PhpValue): string {
 	switch (value.type) {
 		case 'null':
@@ -26,7 +44,7 @@ function serializeValue(value: PhpValue): string {
 			return `d:${value.value};`;
 
 		case 'string':
-			return `s:${value.value.length}:"${value.value}";`;
+			return `s:${utf8ByteLength(value.value)}:"${value.value}";`;
 
 		case 'array':
 			return serializeArray(value.entries);
@@ -47,9 +65,9 @@ function serializeArray(entries: PhpArrayEntry[]): string {
 function serializeObject(className: string, properties: PhpObjectProperty[]): string {
 	const parts = properties.map((prop) => {
 		const name = encodePropertyName(prop.name, prop.visibility, prop.className ?? className);
-		return `s:${name.length}:"${name}";${serializeValue(prop.value)}`;
+		return `s:${utf8ByteLength(name)}:"${name}";${serializeValue(prop.value)}`;
 	});
-	return `O:${className.length}:"${className}":${properties.length}:{${parts.join('')}}`;
+	return `O:${utf8ByteLength(className)}:"${className}":${properties.length}:{${parts.join('')}}`;
 }
 
 function encodePropertyName(
