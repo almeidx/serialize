@@ -67,12 +67,11 @@
 		const newValue = value;
 		const ed = editor;
 		if (ed && monaco && newValue !== ed.getValue()) {
-			if (isInternalChange) {
-				isInternalChange = false;
-			} else {
+			if (!isInternalChange) {
 				ed.setValue(newValue);
 			}
 		}
+		isInternalChange = false;
 	});
 
 	$effect(() => {
