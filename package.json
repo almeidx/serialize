@@ -9,13 +9,15 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"dev": "vite dev",
 		"preview": "vite preview",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:e2e": "playwright test"
 	},
 	"dependencies": {
 		"@monaco-editor/loader": "^1.7.0",
 		"monaco-editor": "^0.55.1"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.58.2",
 		"@sveltejs/adapter-cloudflare": "^7.2.8",
 		"@sveltejs/kit": "^2.53.0",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",

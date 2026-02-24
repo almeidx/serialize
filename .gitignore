@@ -7,3 +7,5 @@ build
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .wrangler
+playwright-report
+test-results
