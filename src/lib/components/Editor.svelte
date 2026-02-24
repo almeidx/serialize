@@ -17,7 +17,7 @@
 	let monaco = $state<typeof Monaco | null>(null);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	let isInternalChange = false;
+	let suppressNextChange = false;
 
 	onMount(async () => {
 		const loader = await import('@monaco-editor/loader');
@@ -41,8 +41,12 @@
 		editor = ed;
 
 		ed.onDidChangeModelContent(() => {
+			if (suppressNextChange) {
+				suppressNextChange = false;
+				return;
+			}
+
 			if (onchange) {
-				isInternalChange = true;
 				if (debounceTimer) clearTimeout(debounceTimer);
 				debounceTimer = setTimeout(() => {
 					onchange(ed.getValue());
@@ -67,11 +71,9 @@
 		const newValue = value;
 		const ed = editor;
 		if (ed && monaco && newValue !== ed.getValue()) {
-			if (!isInternalChange) {
-				ed.setValue(newValue);
-			}
+			suppressNextChange = true;
+			ed.setValue(newValue);
 		}
-		isInternalChange = false;
 	});
 
 	$effect(() => {

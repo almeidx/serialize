@@ -19,6 +19,7 @@
 	let parsedData = $state<JsonValue | undefined>(undefined);
 	let parseError = $state<Error | null>(null);
 	let stats = $state<Stats | null>(null);
+	let phpSerializedValue = $state('');
 	let statsCollapsed = $state(false);
 
 	const defaultTreeData: JsonValue = {};
@@ -83,6 +84,7 @@
 			parsedData = undefined;
 			parseError = null;
 			stats = null;
+			phpSerializedValue = '';
 			return;
 		}
 
@@ -91,12 +93,14 @@
 				const trimmed = inputValue.trim();
 				const phpValue = parse(trimmed);
 				parsedData = toJson(phpValue);
+				phpSerializedValue = phpSerialize(phpValue);
 				stats = computeStats(phpValue, trimmed);
 			} else {
 				const json = JSON.parse(inputValue);
 				parsedData = json;
 				const phpValue = fromJson(json);
 				const serialized = phpSerialize(phpValue);
+				phpSerializedValue = serialized;
 				stats = computeStats(phpValue, serialized);
 			}
 			parseError = null;
@@ -104,26 +108,22 @@
 			parseError = e as Error;
 			parsedData = undefined;
 			stats = null;
+			phpSerializedValue = '';
 		}
 	}
 
-	let inputChangeTimeout: ReturnType<typeof setTimeout> | null = null;
-
 	function handleInputChange(value: string) {
-		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
-		inputChangeTimeout = setTimeout(() => {
-			const wasEmpty = !inputValue.trim();
-			inputValue = value;
+		const wasEmpty = !inputValue.trim();
+		inputValue = value;
 
-			if (wasEmpty && value.trim()) {
-				const detected = detectFormat(value);
-				if (detected && detected !== inputMode) {
-					inputMode = detected;
-				}
+		if (wasEmpty && value.trim()) {
+			const detected = detectFormat(value);
+			if (detected && detected !== inputMode) {
+				inputMode = detected;
 			}
+		}
 
-			processInput();
-		}, 300);
+		processInput();
 	}
 
 	function handleOutputJsonChange(value: string) {
@@ -158,18 +158,17 @@
 	function updateInputFromParsed() {
 		if (parsedData === undefined) return;
 
-		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
-
 		try {
+			const phpValue = fromJson(parsedData);
+			const serialized = phpSerialize(phpValue);
+			phpSerializedValue = serialized;
+
 			if (inputMode === 'php') {
-				const phpValue = fromJson(parsedData);
-				inputValue = phpSerialize(phpValue);
+				inputValue = serialized;
 			} else {
 				inputValue = JSON.stringify(parsedData, null, 2);
 			}
 
-			const phpValue = fromJson(parsedData);
-			const serialized = phpSerialize(phpValue);
 			stats = computeStats(phpValue, serialized);
 			parseError = null;
 		} catch (e) {
@@ -178,28 +177,21 @@
 	}
 
 	function loadExample() {
-		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
 		inputValue = inputMode === 'php' ? phpExample : jsonExample;
 		processInput();
 	}
 
 	function clearInput() {
-		if (inputChangeTimeout) clearTimeout(inputChangeTimeout);
 		inputValue = '';
 		parsedData = undefined;
 		parseError = null;
 		stats = null;
+		phpSerializedValue = '';
 	}
 
 	const jsonPretty = $derived(JSON.stringify(treeData, null, 2));
 	const jsonMinified = $derived(JSON.stringify(treeData));
-	const phpSerialized = $derived.by(() => {
-		try {
-			return phpSerialize(fromJson(treeData));
-		} catch {
-			return '';
-		}
-	});
+	const phpSerialized = $derived(phpSerializedValue);
 
 	function handleDragStart(e: MouseEvent) {
 		isDragging = true;
