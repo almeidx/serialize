@@ -211,6 +211,17 @@
 	function handleDragEnd() {
 		isDragging = false;
 	}
+
+	function handleSplitHandleKeydown(event: KeyboardEvent) {
+		const step = event.shiftKey ? 10 : 2;
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			splitPosition = Math.max(20, splitPosition - step);
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			splitPosition = Math.min(80, splitPosition + step);
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleDrag} onmouseup={handleDragEnd} />
@@ -322,7 +333,7 @@
 		</div>
 	{/if}
 
-	<main class="flex-1 flex overflow-hidden">
+	<main class="flex-1 flex flex-col md:flex-row overflow-hidden">
 		<div id="split-container" class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
 			<!-- Top/Left: Input Editor -->
 			<div
@@ -345,14 +356,19 @@
 			</div>
 
 			<!-- Drag Handle (desktop only) -->
-			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-			<div
+			<button
+				type="button"
 				class="hidden md:block w-1 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors absolute top-0 bottom-0 z-10"
 				style="left: {splitPosition}%"
 				onmousedown={handleDragStart}
-				role="separator"
-				aria-orientation="vertical"
-			></div>
+				onkeydown={handleSplitHandleKeydown}
+				role="slider"
+				aria-orientation="horizontal"
+				aria-label="Resize panels"
+				aria-valuemin={20}
+				aria-valuemax={80}
+				aria-valuenow={Math.round(splitPosition)}
+			></button>
 
 			<!-- Bottom/Right: Output (Tree or JSON) -->
 			<div class="flex-1 flex flex-col overflow-hidden min-h-0">

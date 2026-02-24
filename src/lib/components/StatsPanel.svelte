@@ -8,6 +8,7 @@
 	}
 
 	let { stats, collapsed = false, oncollapse }: Props = $props();
+	let mobileExpanded = $state(false);
 
 	function formatBytes(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -15,6 +16,44 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 </script>
+
+{#if stats}
+	<aside class="md:hidden border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 shrink-0">
+		<button
+			onclick={() => (mobileExpanded = !mobileExpanded)}
+			class="w-full px-3 py-2 text-xs text-left text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+		>
+			Stats: {formatBytes(stats.byteSize)} • {stats.nodeCount} nodes • depth {stats.maxDepth}
+		</button>
+		{#if mobileExpanded}
+			<div class="px-3 pb-3 space-y-3 text-xs">
+				<div>
+					<h3 class="font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Types</h3>
+					<ul class="space-y-1">
+						{#each Object.entries(stats.types) as [type, count]}
+							<li class="flex justify-between">
+								<span class="text-zinc-600 dark:text-zinc-400">{type}</span>
+								<span class="text-zinc-900 dark:text-zinc-100 font-mono">{count}</span>
+							</li>
+						{/each}
+					</ul>
+				</div>
+				{#if stats.classes.length > 0}
+					<div>
+						<h3 class="font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Classes</h3>
+						<ul class="space-y-1">
+							{#each stats.classes as className}
+								<li class="text-cyan-600 dark:text-cyan-400 font-mono truncate">
+									{className}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</aside>
+{/if}
 
 <aside
 	class="hidden md:flex bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 transition-all duration-200 {collapsed
