@@ -1,22 +1,23 @@
 <script lang="ts">
 	import type { JsonValue } from '../converter/json';
+	import type { TreePath } from '../tree/operations';
 	import EditableTreeNode from './EditableTreeView.svelte';
 
 	export type TreeOperation =
-		| { type: 'set'; path: string; value: JsonValue }
-		| { type: 'delete'; path: string }
-		| { type: 'add'; path: string; key: string; value: JsonValue };
+		| { type: 'set'; path: TreePath; value: JsonValue }
+		| { type: 'delete'; path: TreePath }
+		| { type: 'add'; path: TreePath; key: string; value: JsonValue };
 
 	interface Props {
 		data: JsonValue;
-		path?: string;
+		path?: TreePath;
 		keyName?: string | number | null;
 		depth?: number;
 		onchange?: (op: TreeOperation) => void;
 		ondelete?: () => void;
 	}
 
-	let { data, path = '', keyName = null, depth = 0, onchange, ondelete }: Props = $props();
+	let { data, path = [], keyName = null, depth = 0, onchange, ondelete }: Props = $props();
 
 	// svelte-ignore state_referenced_locally - depth is fixed per tree node instance
 	let expanded = $state(depth < 2);
@@ -25,6 +26,7 @@
 	let showTypeMenu = $state(false);
 	let addingKey = $state(false);
 	let newKeyName = $state('');
+	let typeMenuContainer: HTMLDivElement | null = null;
 
 	function getType(value: JsonValue): string {
 		if (value === null) return 'null';
@@ -209,8 +211,14 @@
 
 	function handleChildDelete(childKey: string | number) {
 		if (!onchange) return;
-		const childPath = path ? `${path}.${childKey}` : String(childKey);
+		const childPath = [...path, childKey];
 		onchange({ type: 'delete', path: childPath });
+	}
+
+	function handleTypeMenuFocusOut(event: FocusEvent) {
+		const next = event.relatedTarget;
+		if (next instanceof Node && typeMenuContainer?.contains(next)) return;
+		showTypeMenu = false;
 	}
 
 	const type = $derived(getType(data));
@@ -220,12 +228,6 @@
 	const expandable = $derived(isExpandable(data));
 	const canAddChildren = $derived(type === 'array' || type === 'object');
 </script>
-
-<svelte:window
-	onclick={(e) => {
-		if (showTypeMenu) showTypeMenu = false;
-	}}
-/>
 
 <div class="font-mono text-sm" style="padding-left: {depth > 0 ? 16 : 0}px">
 	<div class="flex items-start gap-1 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded group">
@@ -306,7 +308,7 @@
 			<!-- Action buttons -->
 			<span class="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1">
 				<!-- Type change button -->
-				<div class="relative">
+				<div class="relative" bind:this={typeMenuContainer} onfocusout={handleTypeMenuFocusOut}>
 					<button
 						onclick={(e) => {
 							e.stopPropagation();
@@ -397,7 +399,7 @@
 				<EditableTreeNode
 					data={child.value}
 					keyName={child.key}
-					path={path ? `${path}.${child.key}` : String(child.key)}
+					path={[...path, child.key]}
 					depth={depth + 1}
 					onchange={handleChildChange}
 					ondelete={() => handleChildDelete(child.key)}
