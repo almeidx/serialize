@@ -72,6 +72,89 @@ describe('fromJson metadata validation', () => {
 
 		expect(() => fromJson(malformed)).toThrow(/missing property 'missing'/);
 	});
+
+	it('rejects malformed object property metadata entries', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'object',
+			__php_class__: 'User',
+			__php_property_meta__: {
+				name: {
+					name: 'name',
+					visibility: 'invalid'
+				}
+			},
+			data: { name: 'Alice' }
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/valid 'visibility'/);
+	});
+
+	it('rejects invalid object property order metadata', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'object',
+			__php_class__: 'User',
+			__php_property_order__: ['name', 'name'],
+			data: { name: 'Alice' }
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/duplicate key/);
+	});
+
+	it('rejects invalid custom object wrappers', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'custom_object',
+			__php_class__: 'Foo',
+			__php_payload_base64__: '%%%%'
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/invalid base64 payload/i);
+	});
+
+	it('rejects invalid enum wrappers', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'enum',
+			__php_class__: 'Suit',
+			__php_enum_case__: ''
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/non-empty '__php_enum_case__'/);
+	});
+
+	it('rejects unresolved references after conversion', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [{ type: 'int', value: 0 }],
+			data: {
+				0: {
+					__php_type__: 'reference',
+					__php_ref_index__: 9,
+					__php_ref_object__: false
+				}
+			}
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/unresolved value/);
+	});
+
+	it('rejects object references to non object-like targets', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [
+				{ type: 'int', value: 0 },
+				{ type: 'int', value: 1 }
+			],
+			data: {
+				0: 'foo',
+				1: {
+					__php_type__: 'reference',
+					__php_ref_index__: 2,
+					__php_ref_object__: true
+				}
+			}
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/object-like value/);
+	});
 });
 
 describe('toJson/fromJson round-trip', () => {
@@ -125,12 +208,62 @@ describe('toJson/fromJson round-trip', () => {
 	});
 
 	it('preserves reference wrappers', () => {
-		const input: PhpValue = {
-			type: 'reference',
-			index: 7,
-			isObject: true
+		const validGraph: PhpValue = {
+			type: 'array',
+			entries: [
+				{
+					key: { type: 'int', value: 0 },
+					value: { type: 'string', value: 'foo' }
+				},
+				{
+					key: { type: 'int', value: 1 },
+					value: { type: 'reference', index: 2, isObject: false }
+				}
+			]
 		};
 
-		expect(fromJson(toJson(input))).toEqual(input);
+		expect(fromJson(toJson(validGraph))).toEqual(validGraph);
+	});
+
+	it('preserves duplicate object property names using property metadata', () => {
+		const input: PhpValue = {
+			type: 'object',
+			className: 'User',
+			properties: [
+				{
+					name: 'value',
+					visibility: 'private',
+					className: 'Base',
+					value: { type: 'string', value: 'base' }
+				},
+				{
+					name: 'value',
+					visibility: 'private',
+					className: 'User',
+					value: { type: 'string', value: 'user' }
+				}
+			]
+		};
+
+		const json = toJson(input) as Record<string, JsonValue>;
+		expect(json.__php_property_order__).toEqual(['value', 'value#2']);
+		expect(fromJson(json)).toEqual(input);
+	});
+
+	it('preserves custom objects and enums', () => {
+		const customObject: PhpValue = {
+			type: 'custom_object',
+			className: 'Foo',
+			payload: `a${String.fromCharCode(0)}b`,
+			binary: true
+		};
+		const enumValue: PhpValue = {
+			type: 'enum',
+			className: 'Suit',
+			caseName: 'Hearts'
+		};
+
+		expect(fromJson(toJson(customObject))).toEqual(customObject);
+		expect(fromJson(toJson(enumValue))).toEqual(enumValue);
 	});
 });

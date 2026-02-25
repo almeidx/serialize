@@ -54,6 +54,8 @@
 			if (obj.__php_type__ === 'array') return 'array';
 			if (obj.__php_type__ === 'string') return 'binary';
 			if (obj.__php_type__ === 'reference') return 'reference';
+			if (obj.__php_type__ === 'custom_object') return 'custom_object';
+			if (obj.__php_type__ === 'enum') return 'enum';
 			return 'object';
 		}
 		return typeof value;
@@ -71,6 +73,14 @@
 		if (type === 'reference') {
 			const obj = value as Record<string, JsonValue>;
 			return `ref(${obj.__php_ref_index__})`;
+		}
+		if (type === 'custom_object') {
+			const obj = value as Record<string, JsonValue>;
+			return `custom(${String(obj.__php_class__)})`;
+		}
+		if (type === 'enum') {
+			const obj = value as Record<string, JsonValue>;
+			return `${String(obj.__php_class__)}::${String(obj.__php_enum_case__)}`;
 		}
 		return '';
 	}
@@ -117,7 +127,12 @@
 		if (Array.isArray(value)) return true;
 		if (typeof value === 'object' && value !== null) {
 			const obj = value as Record<string, JsonValue>;
-			if (obj.__php_type__ === 'string' || obj.__php_type__ === 'reference')
+			if (
+				obj.__php_type__ === 'string' ||
+				obj.__php_type__ === 'reference' ||
+				obj.__php_type__ === 'custom_object' ||
+				obj.__php_type__ === 'enum'
+			)
 				return false;
 			return true;
 		}
@@ -344,6 +359,14 @@
 				>
 			{:else if type === 'reference'}
 				<span class="text-pink-600 dark:text-pink-400 italic"
+					>{displayValue}</span
+				>
+			{:else if type === 'custom_object'}
+				<span class="text-teal-600 dark:text-teal-400 italic"
+					>{displayValue}</span
+				>
+			{:else if type === 'enum'}
+				<span class="text-violet-600 dark:text-violet-400 italic"
 					>{displayValue}</span
 				>
 			{/if}

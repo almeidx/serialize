@@ -13,9 +13,20 @@ export interface JsonWithMeta {
 	__php_class__?: string;
 	__php_visibility__?: Record<string, 'public' | 'protected' | 'private'>;
 	__php_property_class__?: Record<string, string>;
+	__php_property_meta__?: Record<
+		string,
+		{
+			name: string;
+			visibility: 'public' | 'protected' | 'private';
+			className?: string;
+		}
+	>;
+	__php_property_order__?: string[];
 	__php_binary__?: boolean;
 	__php_ref_index__?: number;
 	__php_ref_object__?: boolean;
+	__php_payload_base64__?: string;
+	__php_enum_case__?: string;
 	__php_original_keys__?: Array<{ type: 'int' | 'string'; value: number | string }>;
 	data?: JsonValue;
 	value?: JsonValue;
@@ -74,34 +85,49 @@ export function toJson(php: PhpValue): JsonValue {
 		case 'object': {
 			const result: Record<string, JsonValue> = {
 				__php_type__: 'object',
-				__php_class__: php.className
+				__php_class__: php.className,
 			};
 
-			const visibilities: Record<string, 'public' | 'protected' | 'private'> = {};
-			const propertyClasses: Record<string, string> = {};
 			const data: Record<string, JsonValue> = {};
+			const propertyMeta: Record<
+				string,
+				{ name: string; visibility: PhpVisibility; className?: string }
+			> = {};
+			const propertyOrder: string[] = [];
+			const usedKeys = new Set<string>();
 
 			for (const prop of php.properties) {
-				data[prop.name] = toJson(prop.value);
+				const key = makeUniqueKey(prop.name, usedKeys);
+				usedKeys.add(key);
+				data[key] = toJson(prop.value);
+				propertyOrder.push(key);
 
-				if (prop.visibility !== 'public') {
-					visibilities[prop.name] = prop.visibility;
-				}
-				if (prop.className) {
-					propertyClasses[prop.name] = prop.className;
-				}
-			}
-
-			if (Object.keys(visibilities).length > 0) {
-				result.__php_visibility__ = visibilities;
-			}
-			if (Object.keys(propertyClasses).length > 0) {
-				result.__php_property_class__ = propertyClasses;
+				propertyMeta[key] = {
+					name: prop.name,
+					visibility: prop.visibility,
+					className: prop.className,
+				};
 			}
 
 			result.data = data;
+			result.__php_property_meta__ = propertyMeta;
+			result.__php_property_order__ = propertyOrder;
 			return result;
 		}
+
+		case 'custom_object':
+			return {
+				__php_type__: 'custom_object',
+				__php_class__: php.className,
+				__php_payload_base64__: btoa(php.payload),
+			};
+
+		case 'enum':
+			return {
+				__php_type__: 'enum',
+				__php_class__: php.className,
+				__php_enum_case__: php.caseName,
+			};
 
 		case 'reference':
 			return {
@@ -113,6 +139,12 @@ export function toJson(php: PhpValue): JsonValue {
 }
 
 export function fromJson(json: JsonValue): PhpValue {
+	const php = fromJsonInternal(json);
+	validateReferenceGraph(php);
+	return php;
+}
+
+function fromJsonInternal(json: JsonValue): PhpValue {
 	if (json === null) {
 		return { type: 'null' };
 	}
@@ -135,7 +167,7 @@ export function fromJson(json: JsonValue): PhpValue {
 	if (Array.isArray(json)) {
 		const entries: PhpArrayEntry[] = json.map((item, index) => ({
 			key: { type: 'int' as const, value: index },
-			value: fromJson(item)
+			value: fromJsonInternal(item),
 		}));
 		return { type: 'array', entries };
 	}
@@ -149,23 +181,27 @@ export function fromJson(json: JsonValue): PhpValue {
 				throw new Error('__php_type__ must be a string when present');
 			}
 
-			switch (typeTag) {
-				case 'string':
-					return fromBinaryWrapper(obj);
-				case 'reference':
-					return fromReferenceWrapper(obj);
-				case 'array':
-					return fromArrayWrapper(obj);
-				case 'object':
-					return fromObjectWrapper(obj);
-				default:
-					throw new Error(`Unsupported __php_type__ value '${typeTag}'`);
+				switch (typeTag) {
+					case 'string':
+						return fromBinaryWrapper(obj);
+					case 'reference':
+						return fromReferenceWrapper(obj);
+					case 'array':
+						return fromArrayWrapper(obj);
+					case 'object':
+						return fromObjectWrapper(obj);
+					case 'custom_object':
+						return fromCustomObjectWrapper(obj);
+					case 'enum':
+						return fromEnumWrapper(obj);
+					default:
+						throw new Error(`Unsupported __php_type__ value '${typeTag}'`);
+				}
 			}
-		}
 
 		const entries: PhpArrayEntry[] = Object.entries(obj).map(([key, value]) => ({
 			key: { type: 'string' as const, value: key },
-			value: fromJson(value)
+			value: fromJsonInternal(value),
 		}));
 		return { type: 'array', entries };
 	}
@@ -246,7 +282,7 @@ function fromArrayWrapper(obj: JsonObject): PhpValue {
 				keyInfo.type === 'int'
 					? { type: 'int' as const, value: keyInfo.value as number }
 					: { type: 'string' as const, value: keyInfo.value as string },
-			value: fromJson(data[keyStr])
+			value: fromJsonInternal(data[keyStr])
 		};
 	});
 
@@ -259,8 +295,16 @@ function fromObjectWrapper(obj: JsonObject): PhpValue {
 	}
 
 	const data = requireObject(obj.data, "Object wrapper 'data'");
+	const propertyMeta = parsePropertyMetaMap(obj.__php_property_meta__);
+	const propertyOrder = parsePropertyOrder(obj.__php_property_order__, data);
 	const visibilities = parseVisibilityMap(obj.__php_visibility__);
 	const propertyClasses = parseStringMap(obj.__php_property_class__, '__php_property_class__');
+
+	for (const key of Object.keys(propertyMeta)) {
+		if (!(key in data)) {
+			throw new Error(`Property metadata references missing property key '${key}'`);
+		}
+	}
 
 	for (const key of Object.keys(visibilities)) {
 		if (!(key in data)) {
@@ -274,14 +318,162 @@ function fromObjectWrapper(obj: JsonObject): PhpValue {
 		}
 	}
 
-	const properties: PhpObjectProperty[] = Object.entries(data).map(([name, value]) => ({
-		name,
-		visibility: visibilities[name] ?? 'public',
-		className: propertyClasses[name],
-		value: fromJson(value)
-	}));
+	const keyOrder = propertyOrder ?? Object.keys(data);
+	const properties: PhpObjectProperty[] = keyOrder.map((key) => {
+		const value = data[key];
+		if (value === undefined) {
+			throw new Error(`Object wrapper order references missing property key '${key}'`);
+		}
+
+		const meta = propertyMeta[key];
+		const name = meta?.name ?? key;
+		const visibility = meta?.visibility ?? visibilities[key] ?? 'public';
+		const className = meta?.className ?? propertyClasses[key];
+
+		return {
+			name,
+			visibility,
+			className,
+			value: fromJsonInternal(value),
+		};
+	});
 
 	return { type: 'object', className: obj.__php_class__, properties };
+}
+
+function fromCustomObjectWrapper(obj: JsonObject): PhpValue {
+	if (typeof obj.__php_class__ !== 'string' || obj.__php_class__.length === 0) {
+		throw new Error("Custom object wrapper requires non-empty '__php_class__'");
+	}
+	if (typeof obj.__php_payload_base64__ !== 'string') {
+		throw new Error("Custom object wrapper requires '__php_payload_base64__' string");
+	}
+
+	let payload: string;
+	try {
+		payload = atob(obj.__php_payload_base64__);
+	} catch {
+		throw new Error('Custom object wrapper contains invalid base64 payload');
+	}
+
+	return {
+		type: 'custom_object',
+		className: obj.__php_class__,
+		payload,
+		binary: hasBinaryControlCharacters(payload) ? true : undefined,
+	};
+}
+
+function fromEnumWrapper(obj: JsonObject): PhpValue {
+	if (typeof obj.__php_class__ !== 'string' || obj.__php_class__.length === 0) {
+		throw new Error("Enum wrapper requires non-empty '__php_class__'");
+	}
+	if (typeof obj.__php_enum_case__ !== 'string' || obj.__php_enum_case__.length === 0) {
+		throw new Error("Enum wrapper requires non-empty '__php_enum_case__'");
+	}
+
+	return {
+		type: 'enum',
+		className: obj.__php_class__,
+		caseName: obj.__php_enum_case__,
+	};
+}
+
+function makeUniqueKey(baseKey: string, usedKeys: Set<string>): string {
+	if (!usedKeys.has(baseKey)) return baseKey;
+
+	let counter = 2;
+	let candidate = `${baseKey}#${counter}`;
+	while (usedKeys.has(candidate)) {
+		counter++;
+		candidate = `${baseKey}#${counter}`;
+	}
+
+	return candidate;
+}
+
+function parsePropertyMetaMap(
+	value: JsonValue | undefined,
+): Record<string, { name: string; visibility: PhpVisibility; className?: string }> {
+	if (value === undefined) return {};
+
+	const obj = requireObject(value, '__php_property_meta__');
+	const result: Record<
+		string,
+		{ name: string; visibility: PhpVisibility; className?: string }
+	> = {};
+
+	for (const [key, metaValue] of Object.entries(obj)) {
+		if (!metaValue || Array.isArray(metaValue) || typeof metaValue !== 'object') {
+			throw new Error(`__php_property_meta__ entry '${key}' must be an object`);
+		}
+
+		const meta = metaValue as Record<string, JsonValue>;
+		if (typeof meta.name !== 'string') {
+			throw new Error(`__php_property_meta__ entry '${key}' must include string 'name'`);
+		}
+		if (
+			meta.visibility !== 'public' &&
+			meta.visibility !== 'protected' &&
+			meta.visibility !== 'private'
+		) {
+			throw new Error(
+				`__php_property_meta__ entry '${key}' must include valid 'visibility'`,
+			);
+		}
+		if (
+			meta.className !== undefined &&
+			typeof meta.className !== 'string'
+		) {
+			throw new Error(
+				`__php_property_meta__ entry '${key}' has invalid 'className'`,
+			);
+		}
+
+		result[key] = {
+			name: meta.name,
+			visibility: meta.visibility,
+			className: meta.className,
+		};
+	}
+
+	return result;
+}
+
+function parsePropertyOrder(
+	value: JsonValue | undefined,
+	data: JsonObject,
+): string[] | undefined {
+	if (value === undefined) return undefined;
+	if (!Array.isArray(value)) {
+		throw new Error('__php_property_order__ must be an array when present');
+	}
+
+	const seen = new Set<string>();
+	const order = value.map((entry, index) => {
+		if (typeof entry !== 'string') {
+			throw new Error(`__php_property_order__ entry at index ${index} must be a string`);
+		}
+		if (seen.has(entry)) {
+			throw new Error(`__php_property_order__ contains duplicate key '${entry}'`);
+		}
+		seen.add(entry);
+		return entry;
+	});
+
+	for (const key of order) {
+		if (!(key in data)) {
+			throw new Error(`__php_property_order__ references missing property key '${key}'`);
+		}
+	}
+
+	for (const key of Object.keys(data)) {
+		if (!seen.has(key)) {
+			throw new Error(`__php_property_order__ is missing property key '${key}'`);
+		}
+	}
+
+	return order;
 }
 
 function requireObject(value: JsonValue | undefined, context: string): JsonObject {
@@ -349,4 +541,84 @@ function parseStringMap(value: JsonValue | undefined, fieldName: string): Record
 	}
 
 	return result;
+}
+
+function validateReferenceGraph(root: PhpValue): void {
+	const values: PhpValue[] = [];
+	let currentIndex = 0;
+
+	function visit(value: PhpValue): void {
+		currentIndex++;
+		const index = currentIndex;
+		values[index] = value;
+
+		if (value.type === 'reference') {
+			if (value.index < 1 || value.index >= index) {
+				throw new Error(
+					`Reference index ${value.index} points to an unresolved value at node ${index}`,
+				);
+			}
+
+			const target = resolveReferenceTarget(value.index, values);
+			if (!target) {
+				throw new Error(`Reference index ${value.index} does not exist`);
+			}
+			if (value.isObject && !isObjectLikeReferenceTarget(target)) {
+				throw new Error(
+					`Object reference index ${value.index} must point to an object-like value`,
+				);
+			}
+		}
+
+		switch (value.type) {
+			case 'array':
+				for (const entry of value.entries) {
+					visit(entry.value);
+				}
+				break;
+			case 'object':
+				for (const property of value.properties) {
+					visit(property.value);
+				}
+				break;
+		}
+	}
+
+	visit(root);
+}
+
+function resolveReferenceTarget(index: number, values: PhpValue[]): PhpValue | null {
+	let current = values[index];
+	if (!current) return null;
+
+	const seen = new Set<number>();
+	let currentIndex = index;
+	while (current.type === 'reference') {
+		if (seen.has(currentIndex)) return null;
+		seen.add(currentIndex);
+
+		currentIndex = current.index;
+		current = values[currentIndex];
+		if (!current) return null;
+	}
+
+	return current;
+}
+
+function isObjectLikeReferenceTarget(value: PhpValue): boolean {
+	return (
+		value.type === 'object' ||
+		value.type === 'custom_object' ||
+		value.type === 'enum'
+	);
+}
+
+function hasBinaryControlCharacters(value: string): boolean {
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		if ((code >= 0 && code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
+			return true;
+		}
+	}
+	return false;
 }

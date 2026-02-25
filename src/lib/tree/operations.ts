@@ -7,8 +7,15 @@ type PhpWrappedContainer = JsonObject & {
 	__php_type__: 'object' | 'array';
 	data?: JsonValue;
 	__php_original_keys__?: JsonValue;
+	__php_property_meta__?: JsonValue;
+	__php_property_order__?: JsonValue;
 };
 type PhpArrayKey = { type: 'int' | 'string'; value: number | string };
+type PhpObjectPropertyMeta = {
+	name: string;
+	visibility: 'public' | 'protected' | 'private';
+	className?: string;
+};
 
 function isPhpWrappedContainer(value: JsonValue): value is PhpWrappedContainer {
 	if (!value || Array.isArray(value) || typeof value !== 'object') return false;
@@ -171,7 +178,8 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 		if (rest.length === 0) {
 			const hasDataKey = Object.prototype.hasOwnProperty.call(data, key);
 			const removedKeys = withoutPhpArrayKeyMetadata(object, key);
-			if (!hasDataKey && !removedKeys) return obj;
+			const removedObjectMeta = withoutPhpObjectPropertyMetadata(object, key);
+			if (!hasDataKey && !removedKeys && !removedObjectMeta) return obj;
 
 			const nextData = { ...data };
 			if (hasDataKey) {
@@ -184,6 +192,10 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 			};
 			if (removedKeys) {
 				updated.__php_original_keys__ = removedKeys;
+			}
+			if (removedObjectMeta) {
+				updated.__php_property_meta__ = removedObjectMeta.meta;
+				updated.__php_property_order__ = removedObjectMeta.order;
 			}
 			return updated;
 		}
@@ -311,6 +323,11 @@ function addToContainer(target: JsonValue, key: string, value: JsonValue): JsonV
 		if (addedKeys) {
 			updated.__php_original_keys__ = addedKeys;
 		}
+		const addedObjectMeta = withAddedPhpObjectPropertyMetadata(updated, key);
+		if (addedObjectMeta) {
+			updated.__php_property_meta__ = addedObjectMeta.meta;
+			updated.__php_property_order__ = addedObjectMeta.order;
+		}
 		return updated;
 	}
 
@@ -349,4 +366,63 @@ function withoutPhpArrayKeyMetadata(
 	const existing = container.__php_original_keys__ as PhpArrayKey[];
 	const next = existing.filter((entry) => String(entry.value) !== rawKey);
 	return next.length === existing.length ? null : next;
+}
+
+function withAddedPhpObjectPropertyMetadata(
+	container: PhpWrappedContainer,
+	rawKey: string
+): { meta: JsonObject; order: string[] } | null {
+	if (container.__php_type__ !== 'object') return null;
+
+	const existingMeta = asObjectRecord(container.__php_property_meta__) ?? {};
+	const existingOrder = Array.isArray(container.__php_property_order__)
+		? container.__php_property_order__.filter(
+				(entry): entry is string => typeof entry === 'string',
+			)
+		: [];
+
+	const hasMeta = Object.prototype.hasOwnProperty.call(existingMeta, rawKey);
+	const hasOrder = existingOrder.includes(rawKey);
+	if (hasMeta && hasOrder) return null;
+
+	const nextMeta: JsonObject = hasMeta
+		? { ...existingMeta }
+		: {
+				...existingMeta,
+				[rawKey]: {
+					name: rawKey,
+					visibility: 'public',
+				} as PhpObjectPropertyMeta as JsonValue,
+			};
+	const nextOrder = hasOrder ? existingOrder.slice() : [...existingOrder, rawKey];
+
+	return { meta: nextMeta, order: nextOrder };
+}
+
+function withoutPhpObjectPropertyMetadata(
+	container: PhpWrappedContainer,
+	rawKey: string
+): { meta: JsonObject; order: string[] } | null {
+	if (container.__php_type__ !== 'object') return null;
+
+	const existingMeta = asObjectRecord(container.__php_property_meta__) ?? {};
+	const existingOrder = Array.isArray(container.__php_property_order__)
+		? container.__php_property_order__.filter(
+				(entry): entry is string => typeof entry === 'string',
+			)
+		: [];
+
+	let changed = false;
+	const nextMeta: JsonObject = { ...existingMeta };
+	if (Object.prototype.hasOwnProperty.call(nextMeta, rawKey)) {
+		delete nextMeta[rawKey];
+		changed = true;
+	}
+
+	const nextOrder = existingOrder.filter((entry) => entry !== rawKey);
+	if (nextOrder.length !== existingOrder.length) {
+		changed = true;
+	}
+
+	return changed ? { meta: nextMeta, order: nextOrder } : null;
 }
