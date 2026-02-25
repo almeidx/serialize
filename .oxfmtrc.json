@@ -1,14 +1,5 @@
 {
 	"useTabs": true,
-	"singleQuote": true,
-	"printWidth": 80,
-	"sortPackageJson": false,
-	"ignorePatterns": [
-		".svelte-kit",
-		".wrangler",
-		"coverage",
-		"node_modules",
-		"pnpm-lock.yaml",
-		"test-results"
-	]
+	"tabWidth": 2,
+	"printWidth": 120
 }
