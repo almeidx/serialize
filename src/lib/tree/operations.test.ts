@@ -101,6 +101,22 @@ describe('tree operations', () => {
 		expect(deleted.__php_data_keys__).toBeUndefined();
 	});
 
+	it('falls back to original-key metadata matching when deleting legacy wrapped array paths', () => {
+		const input: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [
+				{ type: 'string', value: 'alpha' },
+				{ type: 'string', value: 'beta' }
+			],
+			__php_data_keys__: ['alpha#2', 'beta#2'],
+			data: { 'alpha#2': 'a', 'beta#2': 'b' }
+		};
+
+		const deleted = deleteAtPath(input, ['alpha']) as Record<string, JsonValue>;
+		expect(deleted.__php_original_keys__).toEqual([{ type: 'string', value: 'beta' }]);
+		expect(deleted.__php_data_keys__).toEqual(['beta#2']);
+	});
+
 	it('updates PHP object property metadata when adding values', () => {
 		const input: JsonValue = {
 			__php_type__: 'object',

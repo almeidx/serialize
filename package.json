@@ -12,8 +12,8 @@
 		"format:check": "oxfmt --check .github/workflows/ci.yml package.json vite.config.ts src/lib/parser/parse.ts .oxfmtrc.json .oxlintrc.json",
 		"lint": "oxlint . --deny-warnings --vitest-plugin",
 		"preview": "vite preview",
-		"test": "vitest run",
-		"test:coverage": "vitest run --coverage",
+		"test": "svelte-kit sync && vitest run",
+		"test:coverage": "svelte-kit sync && vitest run --coverage",
 		"test:e2e": "playwright test"
 	},
 	"dependencies": {
