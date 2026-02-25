@@ -56,7 +56,8 @@
 		const trimmed = value.trim();
 		if (!trimmed) return null;
 
-		const phpPatterns = /^(N;|b:[01];|i:-?\d+;|d:[^;]+;|s:\d+:|a:\d+:\{|O:\d+:|C:\d+:|R:\d+;|r:\d+;)/;
+		const phpPatterns =
+			/^(N;|b:[01];|i:-?\d+;|d:[^;]+;|s:\d+:|a:\d+:\{|O:\d+:|C:\d+:|E:\d+:|R:\d+;|r:\d+;)/;
 		if (phpPatterns.test(trimmed)) return 'php';
 
 		if (/^[\[\{"]/.test(trimmed) || /^(true|false|null|-?\d)/.test(trimmed)) {

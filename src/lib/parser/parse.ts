@@ -41,6 +41,18 @@ class Parser {
 				return this.parseArray();
 			case 'O':
 				return this.parseObject();
+			case 'C':
+				throw new ParseError(
+					"Serialized custom objects ('C') are not currently supported",
+					this.position,
+					this.getContext()
+				);
+			case 'E':
+				throw new ParseError(
+					"Serialized enums ('E') are not currently supported",
+					this.position,
+					this.getContext()
+				);
 			case 'R':
 				return this.parseReference(false);
 			case 'r':
