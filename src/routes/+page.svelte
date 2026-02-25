@@ -190,9 +190,21 @@
 		phpSerializedValue = '';
 	}
 
-	const jsonPretty = $derived(JSON.stringify(treeData, null, 2));
-	const jsonMinified = $derived(JSON.stringify(treeData));
-	const phpSerialized = $derived(phpSerializedValue);
+	const outputJson = $derived(
+		outputView === 'json' && parsedData !== undefined ? JSON.stringify(treeData, null, 2) : ''
+	);
+
+	function getJsonPrettyForCopy(): string {
+		return JSON.stringify(treeData, null, 2);
+	}
+
+	function getJsonMinifiedForCopy(): string {
+		return JSON.stringify(treeData);
+	}
+
+	function getPhpSerializedForCopy(): string {
+		return phpSerializedValue;
+	}
 
 	function handleDragStart(e: MouseEvent) {
 		isDragging = true;
@@ -378,13 +390,13 @@
 				>
 					<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Output</span>
 					<div class="flex items-center gap-2">
-						<CopyMenu
-							{jsonPretty}
-							{jsonMinified}
-							{phpSerialized}
-							disabled={parsedData === undefined &&
-								typeof treeData === 'object' &&
-								treeData !== null &&
+							<CopyMenu
+								getJsonPretty={getJsonPrettyForCopy}
+								getJsonMinified={getJsonMinifiedForCopy}
+								getPhpSerialized={getPhpSerializedForCopy}
+								disabled={parsedData === undefined &&
+									typeof treeData === 'object' &&
+									treeData !== null &&
 								Object.keys(treeData).length === 0}
 						/>
 						<div class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden">
@@ -428,11 +440,11 @@
 						<div class="h-full overflow-auto p-4">
 							<EditableTreeView data={treeData} onchange={handleTreeChange} />
 						</div>
-					{:else}
-						<Editor value={jsonPretty} language="json" {theme} onchange={handleOutputJsonChange} />
-					{/if}
+						{:else}
+							<Editor value={outputJson} language="json" {theme} onchange={handleOutputJsonChange} />
+						{/if}
+					</div>
 				</div>
-			</div>
 		</div>
 
 		<StatsPanel

@@ -73,4 +73,24 @@ describe('tree operations', () => {
 
 		expect(updated).toEqual(['a', 'b']);
 	});
+
+	it('returns the same root reference for invalid update paths', () => {
+		const input: JsonValue = { nested: { value: 1 } };
+		const updated = setValueAtPath(input, ['missing', 'path'], 2);
+
+		expect(updated).toBe(input);
+	});
+
+	it('preserves untouched branch references when updating nested data', () => {
+		const input: JsonValue = {
+			left: { value: 1 },
+			right: { value: 2 }
+		};
+
+		const updated = setValueAtPath(input, ['left', 'value'], 9) as Record<string, JsonValue>;
+		const original = input as Record<string, JsonValue>;
+
+		expect(updated.left).not.toBe(original.left);
+		expect(updated.right).toBe(original.right);
+	});
 });

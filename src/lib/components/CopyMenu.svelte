@@ -1,12 +1,12 @@
 <script lang="ts">
 	interface Props {
-		jsonPretty: string;
-		jsonMinified: string;
-		phpSerialized: string;
+		getJsonPretty: () => string;
+		getJsonMinified: () => string;
+		getPhpSerialized: () => string;
 		disabled?: boolean;
 	}
 
-	let { jsonPretty, jsonMinified, phpSerialized, disabled = false }: Props = $props();
+	let { getJsonPretty, getJsonMinified, getPhpSerialized, disabled = false }: Props = $props();
 
 	let open = $state(false);
 	let copied = $state<string | null>(null);
@@ -72,23 +72,23 @@
 		<div
 			class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1 z-50"
 		>
-			<button
-				onclick={() => copyToClipboard(jsonPretty, 'pretty')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-			>
-				JSON (pretty)
-			</button>
-			<button
-				onclick={() => copyToClipboard(jsonMinified, 'minified')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-			>
-				JSON (minified)
-			</button>
-			<button
-				onclick={() => copyToClipboard(phpSerialized, 'php')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-			>
-				PHP Serialized
+				<button
+					onclick={() => copyToClipboard(getJsonPretty(), 'pretty')}
+					class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+				>
+					JSON (pretty)
+				</button>
+				<button
+					onclick={() => copyToClipboard(getJsonMinified(), 'minified')}
+					class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+				>
+					JSON (minified)
+				</button>
+				<button
+					onclick={() => copyToClipboard(getPhpSerialized(), 'php')}
+					class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+				>
+					PHP Serialized
 			</button>
 		</div>
 	{/if}
