@@ -271,6 +271,10 @@ class Parser {
 	}
 
 	private readBytes(length: number): string {
+		if (!Number.isSafeInteger(length) || length < 0) {
+			throw new ParseError('Expected non-negative byte length', this.position, this.getContext());
+		}
+
 		const start = this.position;
 		let byteCount = 0;
 
@@ -283,29 +287,58 @@ class Parser {
 				);
 			}
 
-			const code = this.input.charCodeAt(this.position);
-			if (code <= 0x7f) {
-				byteCount += 1;
-			} else if (code <= 0x7ff) {
-				byteCount += 2;
-			} else if (code >= 0xd800 && code <= 0xdbff) {
-				byteCount += 4;
-				this.position++;
-			} else {
-				byteCount += 3;
+			const { codeUnits, utf8Bytes } = this.readUtf8CodePoint(this.position);
+			if (byteCount + utf8Bytes > length) {
+				throw new ParseError(
+					`Declared string length ${length} bytes does not align with UTF-8 sequence`,
+					this.position,
+					this.getContext()
+				);
 			}
 
-			this.position++;
+			byteCount += utf8Bytes;
+			this.position += codeUnits;
 		}
 
 		return this.input.slice(start, this.position);
 	}
 
-	getContext(): string {
-		const start = Math.max(0, this.position - 10);
-		const end = Math.min(this.input.length, this.position + 10);
-		const before = this.input.slice(start, this.position);
-		const after = this.input.slice(this.position, end);
+	private readUtf8CodePoint(index: number): { codeUnits: number; utf8Bytes: number } {
+		const code = this.input.charCodeAt(index);
+
+		if (code <= 0x7f) {
+			return { codeUnits: 1, utf8Bytes: 1 };
+		}
+		if (code <= 0x7ff) {
+			return { codeUnits: 1, utf8Bytes: 2 };
+		}
+		if (code >= 0xd800 && code <= 0xdbff) {
+			const next = this.input.charCodeAt(index + 1);
+			if (Number.isNaN(next) || next < 0xdc00 || next > 0xdfff) {
+				throw new ParseError(
+					'Invalid UTF-16 string: unmatched high surrogate',
+					index,
+					this.getContext(index)
+				);
+			}
+			return { codeUnits: 2, utf8Bytes: 4 };
+		}
+		if (code >= 0xdc00 && code <= 0xdfff) {
+			throw new ParseError(
+				'Invalid UTF-16 string: unexpected low surrogate',
+				index,
+				this.getContext(index)
+			);
+		}
+
+		return { codeUnits: 1, utf8Bytes: 3 };
+	}
+
+	getContext(atPosition: number = this.position): string {
+		const start = Math.max(0, atPosition - 10);
+		const end = Math.min(this.input.length, atPosition + 10);
+		const before = this.input.slice(start, atPosition);
+		const after = this.input.slice(atPosition, end);
 		return `${before}[HERE]${after}`;
 	}
 }
