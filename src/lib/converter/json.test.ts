@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { PhpValue } from '../parser';
 import { fromJson, toJson, type JsonValue } from './json';
 
 describe('fromJson metadata validation', () => {
@@ -75,7 +76,7 @@ describe('fromJson metadata validation', () => {
 
 describe('toJson/fromJson round-trip', () => {
 	it('preserves object metadata across conversion', () => {
-		const input = {
+		const input: PhpValue = {
 			type: 'object',
 			className: 'User',
 			properties: [
@@ -91,7 +92,7 @@ describe('toJson/fromJson round-trip', () => {
 					value: { type: 'string', value: 'secret' }
 				}
 			]
-		} as const;
+		};
 
 		expect(fromJson(toJson(input))).toEqual({
 			type: 'object',
@@ -114,21 +115,21 @@ describe('toJson/fromJson round-trip', () => {
 	});
 
 	it('preserves binary string wrappers', () => {
-		const input = {
+		const input: PhpValue = {
 			type: 'string',
 			value: `a${String.fromCharCode(0)}b`,
 			binary: true
-		} as const;
+		};
 
 		expect(fromJson(toJson(input))).toEqual(input);
 	});
 
 	it('preserves reference wrappers', () => {
-		const input = {
+		const input: PhpValue = {
 			type: 'reference',
 			index: 7,
 			isObject: true
-		} as const;
+		};
 
 		expect(fromJson(toJson(input))).toEqual(input);
 	});
