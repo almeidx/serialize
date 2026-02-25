@@ -225,6 +225,30 @@ describe('toJson/fromJson round-trip', () => {
 		expect(fromJson(toJson(validGraph))).toEqual(validGraph);
 	});
 
+	it('preserves associative arrays with typed key metadata', () => {
+		const input: PhpValue = {
+			type: 'array',
+			entries: [
+				{
+					key: { type: 'int', value: 1 },
+					value: { type: 'string', value: 'one' }
+				},
+				{
+					key: { type: 'string', value: 'foo' },
+					value: { type: 'int', value: 42 }
+				}
+			]
+		};
+
+		const json = toJson(input) as Record<string, JsonValue>;
+		expect(json.__php_type__).toBe('array');
+		expect(json.__php_original_keys__).toEqual([
+			{ type: 'int', value: 1 },
+			{ type: 'string', value: 'foo' }
+		]);
+		expect(fromJson(json)).toEqual(input);
+	});
+
 	it('preserves duplicate object property names using property metadata', () => {
 		const input: PhpValue = {
 			type: 'object',
