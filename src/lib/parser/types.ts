@@ -6,6 +6,8 @@ export type PhpValue =
 	| PhpString
 	| PhpArray
 	| PhpObject
+	| PhpCustomObject
+	| PhpEnum
 	| PhpReference;
 
 export interface PhpNull {
@@ -54,6 +56,19 @@ export interface PhpObject {
 	type: 'object';
 	className: string;
 	properties: PhpObjectProperty[];
+}
+
+export interface PhpCustomObject {
+	type: 'custom_object';
+	className: string;
+	payload: string;
+	binary?: boolean;
+}
+
+export interface PhpEnum {
+	type: 'enum';
+	className: string;
+	caseName: string;
 }
 
 export interface PhpReference {

@@ -23,45 +23,51 @@ export function parse(input: string): PhpValue {
 class Parser {
 	position = 0;
 	private refIndex = 0;
+	private readonly parsedValues: PhpValue[] = [];
 
 	constructor(private input: string) {}
 
 	parseValue(): PhpValue {
 		this.refIndex++;
+		const currentIndex = this.refIndex;
 
 		const type = this.peek();
+		let parsedValue: PhpValue;
 
 		switch (type) {
 			case 'N':
-				return this.parseNull();
+				parsedValue = this.parseNull();
+				break;
 			case 'b':
-				return this.parseBool();
+				parsedValue = this.parseBool();
+				break;
 			case 'i':
-				return this.parseInt();
+				parsedValue = this.parseInt();
+				break;
 			case 'd':
-				return this.parseFloat();
+				parsedValue = this.parseFloat();
+				break;
 			case 's':
-				return this.parseString();
+				parsedValue = this.parseString();
+				break;
 			case 'a':
-				return this.parseArray();
+				parsedValue = this.parseArray();
+				break;
 			case 'O':
-				return this.parseObject();
+				parsedValue = this.parseObject();
+				break;
 			case 'C':
-				throw new ParseError(
-					"Serialized custom objects ('C') are not currently supported",
-					this.position,
-					this.getContext(),
-				);
+				parsedValue = this.parseCustomObject();
+				break;
 			case 'E':
-				throw new ParseError(
-					"Serialized enums ('E') are not currently supported",
-					this.position,
-					this.getContext(),
-				);
+				parsedValue = this.parseEnum();
+				break;
 			case 'R':
-				return this.parseReference(false);
+				parsedValue = this.parseReference(false);
+				break;
 			case 'r':
-				return this.parseReference(true);
+				parsedValue = this.parseReference(true);
+				break;
 			default:
 				throw new ParseError(
 					`Unknown type identifier '${type}'`,
@@ -69,6 +75,9 @@ class Parser {
 					this.getContext(),
 				);
 		}
+
+		this.parsedValues[currentIndex] = parsedValue;
+		return parsedValue;
 	}
 
 	private parseNull(): PhpValue {
@@ -113,8 +122,16 @@ class Parser {
 		} else if (valueStr === 'NAN') {
 			value = NaN;
 		} else {
+			if (!isValidFloatLiteral(valueStr)) {
+				throw new ParseError(
+					`Invalid float value '${valueStr}'`,
+					this.position,
+					this.getContext(),
+				);
+			}
+
 			value = parseFloat(valueStr);
-			if (isNaN(value) && valueStr !== 'NAN') {
+			if (isNaN(value)) {
 				throw new ParseError(
 					`Invalid float value '${valueStr}'`,
 					this.position,
@@ -215,6 +232,55 @@ class Parser {
 		return { type: 'object', className, properties };
 	}
 
+	private parseCustomObject(): PhpValue {
+		this.expect('C');
+		this.expect(':');
+		const classNameLength = this.readNumber();
+		this.expect(':');
+		this.expect('"');
+		const className = this.readBytes(classNameLength);
+		this.expect('"');
+		this.expect(':');
+		const payloadLength = this.readNumber();
+		this.expect(':');
+		this.expect('{');
+		const payload = this.readBytes(payloadLength);
+		this.expect('}');
+
+		return {
+			type: 'custom_object',
+			className,
+			payload,
+			binary: hasBinaryControlCharacters(payload) ? true : undefined,
+		};
+	}
+
+	private parseEnum(): PhpValue {
+		this.expect('E');
+		this.expect(':');
+		const enumNameLength = this.readNumber();
+		this.expect(':');
+		this.expect('"');
+		const enumName = this.readBytes(enumNameLength);
+		this.expect('"');
+		this.expect(';');
+
+		const separator = enumName.indexOf(':');
+		if (separator <= 0 || separator === enumName.length - 1) {
+			throw new ParseError(
+				`Invalid enum identifier '${enumName}'`,
+				this.position,
+				this.getContext(),
+			);
+		}
+
+		return {
+			type: 'enum',
+			className: enumName.slice(0, separator),
+			caseName: enumName.slice(separator + 1),
+		};
+	}
+
 	private parsePropertyName(
 		rawName: string,
 		defaultClassName: string,
@@ -249,7 +315,59 @@ class Parser {
 		this.expect(':');
 		const index = this.readNumber();
 		this.expect(';');
+
+		if (!Number.isSafeInteger(index) || index < 1) {
+			throw new ParseError(
+				`Reference index must be a positive integer, got '${index}'`,
+				this.position,
+				this.getContext(),
+			);
+		}
+		if (index >= this.refIndex) {
+			throw new ParseError(
+				`Reference index ${index} points to an unresolved value`,
+				this.position,
+				this.getContext(),
+			);
+		}
+
+		const target = this.resolveReferenceTarget(index);
+		if (!target) {
+			throw new ParseError(
+				`Reference index ${index} does not exist`,
+				this.position,
+				this.getContext(),
+			);
+		}
+
+		if (isObject && !isObjectLike(target)) {
+			throw new ParseError(
+				`Object reference index ${index} must point to an object-like value`,
+				this.position,
+				this.getContext(),
+			);
+		}
+
 		return { type: 'reference', index, isObject };
+	}
+
+	private resolveReferenceTarget(index: number): PhpValue | null {
+		let current = this.parsedValues[index];
+		if (!current) return null;
+
+		const visited = new Set<number>();
+		let currentIndex = index;
+
+		while (current.type === 'reference') {
+			if (visited.has(currentIndex)) return null;
+			visited.add(currentIndex);
+
+			currentIndex = current.index;
+			current = this.parsedValues[currentIndex];
+			if (!current) return null;
+		}
+
+		return current;
 	}
 
 	private peek(): string {
@@ -412,4 +530,16 @@ function hasBinaryControlCharacters(value: string): boolean {
 		}
 	}
 	return false;
+}
+
+function isValidFloatLiteral(value: string): boolean {
+	return /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value);
+}
+
+function isObjectLike(value: PhpValue): boolean {
+	return (
+		value.type === 'object' ||
+		value.type === 'custom_object' ||
+		value.type === 'enum'
+	);
 }

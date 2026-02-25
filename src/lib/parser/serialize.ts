@@ -35,6 +35,12 @@ function serializeValue(value: PhpValue): string {
 		case 'object':
 			return serializeObject(value.className, value.properties);
 
+		case 'custom_object':
+			return serializeCustomObject(value.className, value.payload);
+
+		case 'enum':
+			return serializeEnum(value.className, value.caseName);
+
 		case 'reference':
 			return `${value.isObject ? 'r' : 'R'}:${value.index};`;
 	}
@@ -51,6 +57,15 @@ function serializeObject(className: string, properties: PhpObjectProperty[]): st
 		return `s:${utf8ByteLength(name)}:"${name}";${serializeValue(prop.value)}`;
 	});
 	return `O:${utf8ByteLength(className)}:"${className}":${properties.length}:{${parts.join('')}}`;
+}
+
+function serializeCustomObject(className: string, payload: string): string {
+	return `C:${utf8ByteLength(className)}:"${className}":${utf8ByteLength(payload)}:{${payload}}`;
+}
+
+function serializeEnum(className: string, caseName: string): string {
+	const enumName = `${className}:${caseName}`;
+	return `E:${utf8ByteLength(enumName)}:"${enumName}";`;
 }
 
 function encodePropertyName(

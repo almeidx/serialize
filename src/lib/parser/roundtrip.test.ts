@@ -58,4 +58,17 @@ describe('parser/serializer round-trip fixtures', () => {
 		expect(serialize(parse(valueRef))).toBe(valueRef);
 		expect(serialize(parse(objectRef))).toBe(objectRef);
 	});
+
+	it('round-trips custom objects and enums', () => {
+		const customObject = 'C:3:"Foo":5:{a\x00b\x00c}';
+		const enumValue = 'E:11:"Suit:Hearts";';
+
+		expect(serialize(parse(customObject))).toBe(customObject);
+		expect(parse(enumValue)).toEqual({
+			type: 'enum',
+			className: 'Suit',
+			caseName: 'Hearts',
+		});
+		expect(serialize(parse(enumValue))).toBe(enumValue);
+	});
 });
