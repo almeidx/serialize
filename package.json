@@ -8,8 +8,12 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"dev": "vite dev",
+		"format": "prettier --write .github/workflows/ci.yml package.json vite.config.ts eslint.config.js src/lib/parser/parse.ts src/lib/components/EditableTreeView.svelte src/lib/components/StatsPanel.svelte src/routes/+page.svelte",
+		"format:check": "prettier --check .github/workflows/ci.yml package.json vite.config.ts eslint.config.js src/lib/parser/parse.ts src/lib/components/EditableTreeView.svelte src/lib/components/StatsPanel.svelte src/routes/+page.svelte",
+		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test"
 	},
 	"dependencies": {
@@ -17,15 +21,23 @@
 		"monaco-editor": "^0.55.1"
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.58.2",
 		"@sveltejs/adapter-cloudflare": "^7.2.8",
 		"@sveltejs/kit": "^2.53.0",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.2.1",
+		"@vitest/coverage-v8": "^4.0.18",
+		"eslint": "^10.0.2",
+		"eslint-plugin-svelte": "^3.15.0",
+		"globals": "^17.3.0",
+		"prettier": "^3.8.1",
+		"prettier-plugin-svelte": "^3.5.0",
 		"svelte": "^5.53.3",
 		"svelte-check": "^4.4.3",
 		"tailwindcss": "^4.2.1",
 		"typescript": "~5.9.3",
+		"typescript-eslint": "^8.56.1",
 		"vite": "^7.3.1",
 		"vitest": "^4.0.18",
 		"wrangler": "^4.68.0"

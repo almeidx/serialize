@@ -37,8 +37,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests with coverage gate
+        run: pnpm test:coverage
 
       - name: Type check
         run: pnpm check

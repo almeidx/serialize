@@ -1,4 +1,9 @@
-import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from './types';
+import {
+	ParseError,
+	type PhpValue,
+	type PhpArrayEntry,
+	type PhpObjectProperty,
+} from './types';
 
 export function parse(input: string): PhpValue {
 	const parser = new Parser(input);
@@ -8,7 +13,7 @@ export function parse(input: string): PhpValue {
 		throw new ParseError(
 			'Unexpected data after end of serialized value',
 			parser.position,
-			parser.getContext()
+			parser.getContext(),
 		);
 	}
 
@@ -45,20 +50,24 @@ class Parser {
 				throw new ParseError(
 					"Serialized custom objects ('C') are not currently supported",
 					this.position,
-					this.getContext()
+					this.getContext(),
 				);
 			case 'E':
 				throw new ParseError(
 					"Serialized enums ('E') are not currently supported",
 					this.position,
-					this.getContext()
+					this.getContext(),
 				);
 			case 'R':
 				return this.parseReference(false);
 			case 'r':
 				return this.parseReference(true);
 			default:
-				throw new ParseError(`Unknown type identifier '${type}'`, this.position, this.getContext());
+				throw new ParseError(
+					`Unknown type identifier '${type}'`,
+					this.position,
+					this.getContext(),
+				);
 		}
 	}
 
@@ -73,7 +82,11 @@ class Parser {
 		this.expect(':');
 		const value = this.readChar();
 		if (value !== '0' && value !== '1') {
-			throw new ParseError(`Expected '0' or '1' for boolean`, this.position - 1, this.getContext());
+			throw new ParseError(
+				`Expected '0' or '1' for boolean`,
+				this.position - 1,
+				this.getContext(),
+			);
 		}
 		this.expect(';');
 		return { type: 'bool', value: value === '1' };
@@ -102,7 +115,11 @@ class Parser {
 		} else {
 			value = parseFloat(valueStr);
 			if (isNaN(value) && valueStr !== 'NAN') {
-				throw new ParseError(`Invalid float value '${valueStr}'`, this.position, this.getContext());
+				throw new ParseError(
+					`Invalid float value '${valueStr}'`,
+					this.position,
+					this.getContext(),
+				);
 			}
 		}
 
@@ -121,7 +138,7 @@ class Parser {
 		this.expect('"');
 		this.expect(';');
 
-		const hasBinary = /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(value);
+		const hasBinary = hasBinaryControlCharacters(value);
 
 		return { type: 'string', value, binary: hasBinary ? true : undefined };
 	}
@@ -147,7 +164,7 @@ class Parser {
 				throw new ParseError(
 					`Array key must be integer or string, got '${keyType}'`,
 					this.position,
-					this.getContext()
+					this.getContext(),
 				);
 			}
 
@@ -184,10 +201,11 @@ class Parser {
 			this.expect('"');
 			this.expect(';');
 
-			const { name, visibility, className: propClassName } = this.parsePropertyName(
-				rawName,
-				className
-			);
+			const {
+				name,
+				visibility,
+				className: propClassName,
+			} = this.parsePropertyName(rawName, className);
 
 			const value = this.parseValue();
 			properties.push({ name, visibility, className: propClassName, value });
@@ -199,8 +217,12 @@ class Parser {
 
 	private parsePropertyName(
 		rawName: string,
-		defaultClassName: string
-	): { name: string; visibility: 'public' | 'protected' | 'private'; className?: string } {
+		defaultClassName: string,
+	): {
+		name: string;
+		visibility: 'public' | 'protected' | 'private';
+		className?: string;
+	} {
 		if (rawName.startsWith('\0*\0')) {
 			return { name: rawName.slice(3), visibility: 'protected' };
 		}
@@ -213,7 +235,8 @@ class Parser {
 				return {
 					name,
 					visibility: 'private',
-					className: propClassName !== defaultClassName ? propClassName : undefined
+					className:
+						propClassName !== defaultClassName ? propClassName : undefined,
 				};
 			}
 		}
@@ -231,14 +254,22 @@ class Parser {
 
 	private peek(): string {
 		if (this.position >= this.input.length) {
-			throw new ParseError('Unexpected end of input', this.position, this.getContext());
+			throw new ParseError(
+				'Unexpected end of input',
+				this.position,
+				this.getContext(),
+			);
 		}
 		return this.input[this.position];
 	}
 
 	private readChar(): string {
 		if (this.position >= this.input.length) {
-			throw new ParseError('Unexpected end of input', this.position, this.getContext());
+			throw new ParseError(
+				'Unexpected end of input',
+				this.position,
+				this.getContext(),
+			);
 		}
 		return this.input[this.position++];
 	}
@@ -249,7 +280,7 @@ class Parser {
 			throw new ParseError(
 				`Expected '${char}', got '${actual}'`,
 				this.position - 1,
-				this.getContext()
+				this.getContext(),
 			);
 		}
 	}
@@ -262,7 +293,10 @@ class Parser {
 			this.position++;
 		}
 
-		while (this.position < this.input.length && /[0-9]/.test(this.input[this.position])) {
+		while (
+			this.position < this.input.length &&
+			/[0-9]/.test(this.input[this.position])
+		) {
 			this.position++;
 			hasDigits = true;
 		}
@@ -276,7 +310,10 @@ class Parser {
 
 	private readUntil(char: string): string {
 		const start = this.position;
-		while (this.position < this.input.length && this.input[this.position] !== char) {
+		while (
+			this.position < this.input.length &&
+			this.input[this.position] !== char
+		) {
 			this.position++;
 		}
 		return this.input.slice(start, this.position);
@@ -284,7 +321,11 @@ class Parser {
 
 	private readBytes(length: number): string {
 		if (!Number.isSafeInteger(length) || length < 0) {
-			throw new ParseError('Expected non-negative byte length', this.position, this.getContext());
+			throw new ParseError(
+				'Expected non-negative byte length',
+				this.position,
+				this.getContext(),
+			);
 		}
 
 		const start = this.position;
@@ -295,7 +336,7 @@ class Parser {
 				throw new ParseError(
 					`Expected ${length} bytes, but only ${byteCount} available`,
 					this.position,
-					this.getContext()
+					this.getContext(),
 				);
 			}
 
@@ -304,7 +345,7 @@ class Parser {
 				throw new ParseError(
 					`Declared string length ${length} bytes does not align with UTF-8 sequence`,
 					this.position,
-					this.getContext()
+					this.getContext(),
 				);
 			}
 
@@ -315,7 +356,10 @@ class Parser {
 		return this.input.slice(start, this.position);
 	}
 
-	private readUtf8CodePoint(index: number): { codeUnits: number; utf8Bytes: number } {
+	private readUtf8CodePoint(index: number): {
+		codeUnits: number;
+		utf8Bytes: number;
+	} {
 		const code = this.input.charCodeAt(index);
 
 		if (code <= 0x7f) {
@@ -330,7 +374,7 @@ class Parser {
 				throw new ParseError(
 					'Invalid UTF-16 string: unmatched high surrogate',
 					index,
-					this.getContext(index)
+					this.getContext(index),
 				);
 			}
 			return { codeUnits: 2, utf8Bytes: 4 };
@@ -339,7 +383,7 @@ class Parser {
 			throw new ParseError(
 				'Invalid UTF-16 string: unexpected low surrogate',
 				index,
-				this.getContext(index)
+				this.getContext(index),
 			);
 		}
 
@@ -353,4 +397,19 @@ class Parser {
 		const after = this.input.slice(atPosition, end);
 		return `${before}[HERE]${after}`;
 	}
+}
+
+function hasBinaryControlCharacters(value: string): boolean {
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		if (
+			(code >= 0 && code <= 8) ||
+			code === 11 ||
+			code === 12 ||
+			(code >= 14 && code <= 31)
+		) {
+			return true;
+		}
+	}
+	return false;
 }

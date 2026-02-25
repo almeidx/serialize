@@ -18,9 +18,16 @@
 		ondelete?: () => void;
 	}
 
-	let { data, path = [], keyName = null, depth = 0, onchange, ondelete }: Props = $props();
+	let {
+		data,
+		path = [],
+		keyName = null,
+		depth = 0,
+		onchange,
+		ondelete,
+	}: Props = $props();
 
-	// svelte-ignore state_referenced_locally - depth is fixed per tree node instance
+	// svelte-ignore state_referenced_locally - depth is fixed per node instance
 	let expanded = $state(depth < 2);
 	let editing = $state(false);
 	let editValue = $state('');
@@ -29,7 +36,14 @@
 	let newKeyName = $state('');
 	let typeMenuContainer = $state<HTMLDivElement | null>(null);
 	let typeMenuList = $state<HTMLDivElement | null>(null);
-	const typeOptions = ['string', 'number', 'boolean', 'null', 'array', 'object'];
+	const typeOptions = [
+		'string',
+		'number',
+		'boolean',
+		'null',
+		'array',
+		'object',
+	];
 
 	function getType(value: JsonValue): string {
 		if (value === null) return 'null';
@@ -80,7 +94,9 @@
 		return '';
 	}
 
-	function getChildren(value: JsonValue): Array<{ key: string | number; value: JsonValue }> {
+	function getChildren(
+		value: JsonValue,
+	): Array<{ key: string | number; value: JsonValue }> {
 		if (Array.isArray(value)) {
 			return value.map((v, i) => ({ key: i, value: v }));
 		}
@@ -101,7 +117,8 @@
 		if (Array.isArray(value)) return true;
 		if (typeof value === 'object' && value !== null) {
 			const obj = value as Record<string, JsonValue>;
-			if (obj.__php_type__ === 'string' || obj.__php_type__ === 'reference') return false;
+			if (obj.__php_type__ === 'string' || obj.__php_type__ === 'reference')
+				return false;
 			return true;
 		}
 		return false;
@@ -249,7 +266,9 @@
 </script>
 
 <div class="font-mono text-sm" style="padding-left: {depth > 0 ? 16 : 0}px">
-	<div class="flex items-start gap-1 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded group">
+	<div
+		class="flex items-start gap-1 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded group"
+	>
 		{#if expandable}
 			<button
 				onclick={() => (expanded = !expanded)}
@@ -316,26 +335,42 @@
 					onclick={startEdit}
 					class="text-orange-600 dark:text-orange-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-1 rounded cursor-text text-left break-all"
 				>
-					"{displayValue.length > 100 ? displayValue.slice(0, 97) + '...' : displayValue}"
+					"{displayValue.length > 100
+						? displayValue.slice(0, 97) + '...'
+						: displayValue}"
 				</button>
 			{:else if type === 'binary'}
-				<span class="text-red-500 dark:text-red-400 italic">{displayValue}</span>
+				<span class="text-red-500 dark:text-red-400 italic">{displayValue}</span
+				>
 			{:else if type === 'reference'}
-				<span class="text-pink-600 dark:text-pink-400 italic">{displayValue}</span>
+				<span class="text-pink-600 dark:text-pink-400 italic"
+					>{displayValue}</span
+				>
 			{/if}
 
 			<!-- Action buttons -->
-			<span class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1">
+			<span
+				class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1"
+			>
 				<!-- Type change button -->
-					<div class="relative" bind:this={typeMenuContainer} onfocusout={handleTypeMenuFocusOut}>
-						<button
-							onclick={toggleTypeMenu}
-							class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-							title="Change type"
-							aria-haspopup="menu"
-							aria-expanded={showTypeMenu}
+				<div
+					class="relative"
+					bind:this={typeMenuContainer}
+					onfocusout={handleTypeMenuFocusOut}
+				>
+					<button
+						onclick={toggleTypeMenu}
+						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+						title="Change type"
+						aria-haspopup="menu"
+						aria-expanded={showTypeMenu}
+					>
+						<svg
+							class="w-3 h-3"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
 						>
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -343,22 +378,22 @@
 								d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
 							/>
 						</svg>
-						</button>
-						{#if showTypeMenu}
-							<div
-								bind:this={typeMenuList}
-								role="menu"
-								tabindex="-1"
-								class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-25"
-								onclick={(e) => e.stopPropagation()}
-								onkeydown={handleTypeMenuKeydown}
-							>
-								{#each typeOptions as t}
-									<button
-										role="menuitem"
-										onclick={() => changeType(t)}
-										class="w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 {type ===
-										t
+					</button>
+					{#if showTypeMenu}
+						<div
+							bind:this={typeMenuList}
+							role="menu"
+							tabindex="-1"
+							class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-25"
+							onclick={(e) => e.stopPropagation()}
+							onkeydown={handleTypeMenuKeydown}
+						>
+							{#each typeOptions as t (t)}
+								<button
+									role="menuitem"
+									onclick={() => changeType(t)}
+									class="w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 {type ===
+									t
 										? 'text-blue-600 dark:text-blue-400 font-medium'
 										: 'text-zinc-700 dark:text-zinc-300'}"
 								>
@@ -379,7 +414,12 @@
 						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
 						title="Add item"
 					>
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg
+							class="w-3 h-3"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -400,7 +440,12 @@
 						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
 						title="Delete"
 					>
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg
+							class="w-3 h-3"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -416,7 +461,7 @@
 
 	{#if expandable && expanded}
 		<div>
-			{#each children as child}
+			{#each children as child (child.key)}
 				<EditableTreeNode
 					data={child.value}
 					keyName={child.key}

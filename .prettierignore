@@ -1,0 +1,6 @@
+.svelte-kit
+.wrangler
+coverage
+node_modules
+pnpm-lock.yaml
+test-results

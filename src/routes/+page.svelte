@@ -3,8 +3,14 @@
 	import { parse, serialize as phpSerialize } from '$lib/parser';
 	import { toJson, fromJson, type JsonValue } from '$lib/converter';
 	import { computeStats, type Stats } from '$lib/stats';
-	import EditableTreeView, { type TreeOperation } from '$lib/components/EditableTreeView.svelte';
-	import { addAtPath, deleteAtPath, setValueAtPath } from '$lib/tree/operations';
+	import EditableTreeView, {
+		type TreeOperation,
+	} from '$lib/components/EditableTreeView.svelte';
+	import {
+		addAtPath,
+		deleteAtPath,
+		setValueAtPath,
+	} from '$lib/tree/operations';
 	import Editor from '$lib/components/Editor.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -23,7 +29,9 @@
 	let statsCollapsed = $state(false);
 
 	const defaultTreeData: JsonValue = {};
-	const treeData = $derived(parsedData !== undefined ? parsedData : defaultTreeData);
+	const treeData = $derived(
+		parsedData !== undefined ? parsedData : defaultTreeData,
+	);
 
 	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
@@ -33,7 +41,9 @@
 		if (!browser) return 'dark';
 		const stored = localStorage.getItem('theme');
 		if (stored === 'light' || stored === 'dark') return stored;
-		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		return window.matchMedia('(prefers-color-scheme: dark)').matches
+			? 'dark'
+			: 'light';
 	}
 
 	const phpExample = `a:4:{s:4:"user";O:4:"User":2:{s:4:"name";s:5:"Alice";s:5:"email";s:17:"alice@example.com";}s:5:"roles";a:2:{i:0;s:5:"admin";i:1;s:4:"user";}s:9:"loginTime";i:1704067200;s:8:"isActive";b:1;}`;
@@ -42,14 +52,14 @@
 		{
 			user: {
 				name: 'Alice',
-				email: 'alice@example.com'
+				email: 'alice@example.com',
 			},
 			roles: ['admin', 'user'],
 			loginTime: 1704067200,
-			isActive: true
+			isActive: true,
 		},
 		null,
-		2
+		2,
 	);
 
 	function detectFormat(value: string): InputMode | null {
@@ -60,7 +70,7 @@
 			/^(N;|b:[01];|i:-?\d+;|d:[^;]+;|s:\d+:|a:\d+:\{|O:\d+:|C:\d+:|E:\d+:|R:\d+;|r:\d+;)/;
 		if (phpPatterns.test(trimmed)) return 'php';
 
-		if (/^[\[\{"]/.test(trimmed) || /^(true|false|null|-?\d)/.test(trimmed)) {
+		if (/^[[{"]/.test(trimmed) || /^(true|false|null|-?\d)/.test(trimmed)) {
 			try {
 				JSON.parse(trimmed);
 				return 'json';
@@ -75,7 +85,10 @@
 	$effect(() => {
 		const currentTheme = theme;
 		if (browser) {
-			document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+			document.documentElement.classList.toggle(
+				'dark',
+				currentTheme === 'dark',
+			);
 			localStorage.setItem('theme', currentTheme);
 		}
 	});
@@ -191,7 +204,9 @@
 	}
 
 	const outputJson = $derived(
-		outputView === 'json' && parsedData !== undefined ? JSON.stringify(treeData, null, 2) : ''
+		outputView === 'json' && parsedData !== undefined
+			? JSON.stringify(treeData, null, 2)
+			: '',
 	);
 
 	function getJsonPrettyForCopy(): string {
@@ -239,19 +254,24 @@
 
 <svelte:window onmousemove={handleDrag} onmouseup={handleDragEnd} />
 
-<div class="h-screen flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+<div
+	class="h-screen flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
+>
 	<header
 		class="border-b border-zinc-200 dark:border-zinc-700 px-3 py-2 flex flex-wrap items-center gap-2 md:gap-4 shrink-0"
 	>
 		<h1 class="text-lg font-semibold">Serialize</h1>
 
-		<div class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+		<div
+			class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+		>
 			<button
 				onclick={() => {
 					inputMode = 'php';
 					processInput();
 				}}
-				class="px-3 py-1 text-sm font-medium transition-colors {inputMode === 'php'
+				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
+				'php'
 					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
 					: 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
 			>
@@ -262,7 +282,8 @@
 					inputMode = 'json';
 					processInput();
 				}}
-				class="px-3 py-1 text-sm font-medium transition-colors {inputMode === 'json'
+				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
+				'json'
 					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
 					: 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
 			>
@@ -308,7 +329,12 @@
 				class="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400 hidden sm:block"
 				title="almeidx.dev"
 			>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg
+					class="w-5 h-5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
@@ -333,7 +359,9 @@
 					</svg>
 				{:else}
 					<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-						<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+						<path
+							d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
+						/>
 					</svg>
 				{/if}
 			</button>
@@ -347,7 +375,10 @@
 	{/if}
 
 	<main class="flex-1 flex flex-col md:flex-row overflow-hidden">
-		<div id="split-container" class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+		<div
+			id="split-container"
+			class="flex-1 flex flex-col md:flex-row overflow-hidden relative"
+		>
 			<!-- Top/Left: Input Editor -->
 			<div
 				class="h-1/2 w-full md:h-auto md:w-[var(--split-position)] flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-700"
@@ -388,46 +419,65 @@
 				<div
 					class="h-8 px-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
 				>
-					<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Output</span>
+					<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+						>Output</span
+					>
 					<div class="flex items-center gap-2">
-							<CopyMenu
-								getJsonPretty={getJsonPrettyForCopy}
-								getJsonMinified={getJsonMinifiedForCopy}
-								getPhpSerialized={getPhpSerializedForCopy}
-								disabled={parsedData === undefined &&
-									typeof treeData === 'object' &&
-									treeData !== null &&
+						<CopyMenu
+							getJsonPretty={getJsonPrettyForCopy}
+							getJsonMinified={getJsonMinifiedForCopy}
+							getPhpSerialized={getPhpSerializedForCopy}
+							disabled={parsedData === undefined &&
+								typeof treeData === 'object' &&
+								treeData !== null &&
 								Object.keys(treeData).length === 0}
 						/>
-						<div class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-						<button
-							onclick={() => (outputView = 'tree')}
-							class="px-2 py-0.5 text-xs font-medium transition-colors {outputView === 'tree'
-								? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-								: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+						<div
+							class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden"
 						>
-							Tree
-						</button>
-						<button
-							onclick={() => (outputView = 'json')}
-							class="px-2 py-0.5 text-xs font-medium transition-colors {outputView === 'json'
-								? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-								: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
-						>
-							JSON
-						</button>
+							<button
+								onclick={() => (outputView = 'tree')}
+								class="px-2 py-0.5 text-xs font-medium transition-colors {outputView ===
+								'tree'
+									? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+									: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+							>
+								Tree
+							</button>
+							<button
+								onclick={() => (outputView = 'json')}
+								class="px-2 py-0.5 text-xs font-medium transition-colors {outputView ===
+								'json'
+									? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+									: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+							>
+								JSON
+							</button>
 						</div>
 					</div>
 				</div>
 
 				<div class="flex-1 overflow-hidden">
 					{#if parsedData === undefined}
-						<div class="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-400 p-8">
-							<svg class="w-12 h-12 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+						<div
+							class="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-400 p-8"
+						>
+							<svg
+								class="w-12 h-12 mb-4 opacity-50"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="1.5"
+									d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+								/>
 							</svg>
 							<p class="text-sm text-center max-w-xs">
-								Paste PHP serialized data or JSON in the input panel to get started
+								Paste PHP serialized data or JSON in the input panel to get
+								started
 							</p>
 							<button
 								onclick={loadExample}
@@ -440,11 +490,16 @@
 						<div class="h-full overflow-auto p-4">
 							<EditableTreeView data={treeData} onchange={handleTreeChange} />
 						</div>
-						{:else}
-							<Editor value={outputJson} language="json" {theme} onchange={handleOutputJsonChange} />
-						{/if}
-					</div>
+					{:else}
+						<Editor
+							value={outputJson}
+							language="json"
+							{theme}
+							onchange={handleOutputJsonChange}
+						/>
+					{/if}
 				</div>
+			</div>
 		</div>
 
 		<StatsPanel
