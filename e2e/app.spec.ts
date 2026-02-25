@@ -3,7 +3,14 @@ import AxeBuilder from '@axe-core/playwright';
 
 const selectAllShortcut = process.platform === 'darwin' ? 'Meta+A' : 'Control+A';
 
+async function waitForClientReady(page: Page): Promise<void> {
+	await expect(page.getByRole('textbox', { name: 'Editor content' }).first()).toBeVisible({
+		timeout: 15_000,
+	});
+}
+
 async function setInputMode(page: Page, mode: 'PHP' | 'JSON'): Promise<void> {
+	await waitForClientReady(page);
 	await page
 		.getByRole('radiogroup', { name: 'Input format' })
 		.getByRole('radio', { name: mode, exact: true })
@@ -91,6 +98,7 @@ test('copy menu supports keyboard navigation and escape to close', async ({ page
 
 test('toggle groups and collapsible expose state semantics', async ({ page }) => {
 	await page.goto('/');
+	await waitForClientReady(page);
 
 	const inputMode = page.getByRole('radiogroup', { name: 'Input format' });
 	const php = inputMode.getByRole('radio', { name: 'PHP', exact: true });
