@@ -32,3 +32,18 @@ test('mobile shows stats summary after parsing', async ({ page }) => {
 
 	await expect(page.getByText(/^Stats:/)).toBeVisible();
 });
+
+test('copy menu supports escape to close', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'JSON' }).first().click();
+	await page.locator('.monaco-editor').first().click();
+	await page.keyboard.press('Meta+A');
+	await page.keyboard.insertText('{"count":1}');
+
+	const copyButton = page.getByRole('button', { name: /^Copy/ });
+	await copyButton.click();
+	await expect(page.getByRole('menu')).toBeVisible();
+
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('menu')).toHaveCount(0);
+});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { JsonValue } from '../converter/json';
 	import type { TreePath } from '../tree/operations';
 	import EditableTreeNode from './EditableTreeView.svelte';
@@ -26,7 +27,9 @@
 	let showTypeMenu = $state(false);
 	let addingKey = $state(false);
 	let newKeyName = $state('');
-	let typeMenuContainer: HTMLDivElement | null = null;
+	let typeMenuContainer = $state<HTMLDivElement | null>(null);
+	let typeMenuList = $state<HTMLDivElement | null>(null);
+	const typeOptions = ['string', 'number', 'boolean', 'null', 'array', 'object'];
 
 	function getType(value: JsonValue): string {
 		if (value === null) return 'null';
@@ -174,6 +177,15 @@
 		onchange({ type: 'set', path, value: newValue });
 	}
 
+	async function toggleTypeMenu(event: MouseEvent) {
+		event.stopPropagation();
+		showTypeMenu = !showTypeMenu;
+		if (showTypeMenu) {
+			await tick();
+			typeMenuList?.focus();
+		}
+	}
+
 	function handleDelete() {
 		ondelete?.();
 	}
@@ -219,6 +231,13 @@
 		const next = event.relatedTarget;
 		if (next instanceof Node && typeMenuContainer?.contains(next)) return;
 		showTypeMenu = false;
+	}
+
+	function handleTypeMenuKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			showTypeMenu = false;
+		}
 	}
 
 	const type = $derived(getType(data));
@@ -306,17 +325,16 @@
 			{/if}
 
 			<!-- Action buttons -->
-			<span class="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1">
+			<span class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1">
 				<!-- Type change button -->
-				<div class="relative" bind:this={typeMenuContainer} onfocusout={handleTypeMenuFocusOut}>
-					<button
-						onclick={(e) => {
-							e.stopPropagation();
-							showTypeMenu = !showTypeMenu;
-						}}
-						class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-						title="Change type"
-					>
+					<div class="relative" bind:this={typeMenuContainer} onfocusout={handleTypeMenuFocusOut}>
+						<button
+							onclick={toggleTypeMenu}
+							class="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+							title="Change type"
+							aria-haspopup="menu"
+							aria-expanded={showTypeMenu}
+						>
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -325,19 +343,22 @@
 								d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
 							/>
 						</svg>
-					</button>
-					{#if showTypeMenu}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-25"
-							onclick={(e) => e.stopPropagation()}
-						>
-							{#each ['string', 'number', 'boolean', 'null', 'array', 'object'] as t}
-								<button
-									onclick={() => changeType(t)}
-									class="w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 {type ===
-									t
+						</button>
+						{#if showTypeMenu}
+							<div
+								bind:this={typeMenuList}
+								role="menu"
+								tabindex="-1"
+								class="absolute left-0 top-6 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-lg py-1 min-w-25"
+								onclick={(e) => e.stopPropagation()}
+								onkeydown={handleTypeMenuKeydown}
+							>
+								{#each typeOptions as t}
+									<button
+										role="menuitem"
+										onclick={() => changeType(t)}
+										class="w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 {type ===
+										t
 										? 'text-blue-600 dark:text-blue-400 font-medium'
 										: 'text-zinc-700 dark:text-zinc-300'}"
 								>
