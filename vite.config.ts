@@ -10,11 +10,17 @@ export default defineConfig({
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'html'],
+			exclude: [
+				'src/**/index.ts',
+				'src/lib/processor/types.ts',
+				'src/lib/processor/worker-protocol.ts',
+				'src/lib/processor/processor.worker.ts',
+			],
 			thresholds: {
-				lines: 30,
-				functions: 30,
-				branches: 30,
-				statements: 30,
+				lines: 83,
+				functions: 98,
+				branches: 72,
+				statements: 80,
 			},
 		},
 	},

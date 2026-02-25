@@ -50,6 +50,7 @@
 	let processorWorker = $state<Worker | null>(null);
 	let workerRequestSeq = 0;
 	let operationSeq = 0;
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const pendingWorkerRequests = new Map<
 		number,
 		{
