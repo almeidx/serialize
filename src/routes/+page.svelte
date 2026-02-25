@@ -1,8 +1,19 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { parse, serialize as phpSerialize } from '$lib/parser';
-	import { toJson, fromJson, type JsonValue } from '$lib/converter';
-	import { computeStats, type Stats } from '$lib/stats';
+	import { onDestroy, onMount } from 'svelte';
+	import { type JsonValue } from '$lib/converter';
+	import {
+		processInputValue,
+		processParsedData,
+		type ProcessInputResult,
+		type ProcessParsedResult,
+	} from '$lib/processor';
+	import type { InputMode } from '$lib/processor/types';
+	import type {
+		ProcessorWorkerRequest,
+		ProcessorWorkerResponse,
+	} from '$lib/processor/worker-protocol';
+	import type { Stats } from '$lib/stats';
 	import EditableTreeView, {
 		type TreeOperation,
 	} from '$lib/components/EditableTreeView.svelte';
@@ -16,7 +27,6 @@
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
 	import CopyMenu from '$lib/components/CopyMenu.svelte';
 
-	type InputMode = 'php' | 'json';
 	type OutputView = 'tree' | 'json';
 
 	let inputMode = $state<InputMode>('php');
@@ -36,6 +46,17 @@
 	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
 	let isDragging = $state(false);
+
+	let processorWorker = $state<Worker | null>(null);
+	let workerRequestSeq = 0;
+	let operationSeq = 0;
+	const pendingWorkerRequests = new Map<
+		number,
+		{
+			resolve: (response: ProcessorWorkerResponse) => void;
+			reject: (error: Error) => void;
+		}
+	>();
 
 	function getInitialTheme(): 'light' | 'dark' {
 		if (!browser) return 'dark';
@@ -93,8 +114,120 @@
 		}
 	});
 
-	function processInput() {
+	onMount(() => {
+		if (!browser) return;
+
+		try {
+			const worker = new Worker(
+				new URL('../lib/processor/processor.worker.ts', import.meta.url),
+				{ type: 'module' },
+			);
+			worker.onmessage = (event: MessageEvent<ProcessorWorkerResponse>) => {
+				const response = event.data;
+				const pending = pendingWorkerRequests.get(response.id);
+				if (!pending) return;
+				pendingWorkerRequests.delete(response.id);
+				pending.resolve(response);
+			};
+			worker.onerror = (event) => {
+				const message =
+					event instanceof ErrorEvent
+						? event.message
+						: 'Failed to process input in worker';
+				for (const pending of pendingWorkerRequests.values()) {
+					pending.reject(new Error(message));
+				}
+				pendingWorkerRequests.clear();
+				processorWorker = null;
+			};
+			processorWorker = worker;
+		} catch {
+			processorWorker = null;
+		}
+	});
+
+	onDestroy(() => {
+		processorWorker?.terminate();
+		processorWorker = null;
+		for (const pending of pendingWorkerRequests.values()) {
+			pending.reject(new Error('Processor worker was terminated'));
+		}
+		pendingWorkerRequests.clear();
+	});
+
+	function nextOperationToken(): number {
+		operationSeq += 1;
+		return operationSeq;
+	}
+
+	function isActiveOperation(token: number): boolean {
+		return token === operationSeq;
+	}
+
+	async function postWorkerRequest(
+		request: ProcessorWorkerRequest,
+	): Promise<ProcessorWorkerResponse> {
+		if (!processorWorker) {
+			throw new Error('Processor worker is not available');
+		}
+
+		return await new Promise<ProcessorWorkerResponse>((resolve, reject) => {
+			pendingWorkerRequests.set(request.id, { resolve, reject });
+			processorWorker?.postMessage(request);
+		});
+	}
+
+	async function processInputAsync(
+		mode: InputMode,
+		value: string,
+	): Promise<ProcessInputResult> {
+		if (!processorWorker) {
+			return processInputValue(mode, value);
+		}
+
+		const response = await postWorkerRequest({
+			id: ++workerRequestSeq,
+			type: 'process-input',
+			inputMode: mode,
+			inputValue: value,
+		});
+		if (!response.ok) {
+			throw new Error(response.error);
+		}
+		if (response.type !== 'process-input') {
+			throw new Error('Unexpected worker response type');
+		}
+		return response.result;
+	}
+
+	async function processParsedDataAsync(
+		data: JsonValue,
+		mode: InputMode,
+	): Promise<ProcessParsedResult> {
+		if (!processorWorker) {
+			return processParsedData(data, mode);
+		}
+
+		const response = await postWorkerRequest({
+			id: ++workerRequestSeq,
+			type: 'process-parsed',
+			inputMode: mode,
+			parsedData: data,
+		});
+		if (!response.ok) {
+			throw new Error(response.error);
+		}
+		if (response.type !== 'process-parsed') {
+			throw new Error('Unexpected worker response type');
+		}
+		return response.result;
+	}
+
+	async function processInput() {
+		const token = nextOperationToken();
+
 		if (!inputValue.trim()) {
+			if (!isActiveOperation(token)) return;
 			parsedData = undefined;
 			parseError = null;
 			stats = null;
@@ -103,22 +236,15 @@
 		}
 
 		try {
-			if (inputMode === 'php') {
-				const trimmed = inputValue.trim();
-				const phpValue = parse(trimmed);
-				parsedData = toJson(phpValue);
-				phpSerializedValue = phpSerialize(phpValue);
-				stats = computeStats(phpValue, trimmed);
-			} else {
-				const json = JSON.parse(inputValue);
-				parsedData = json;
-				const phpValue = fromJson(json);
-				const serialized = phpSerialize(phpValue);
-				phpSerializedValue = serialized;
-				stats = computeStats(phpValue, serialized);
-			}
+			const result = await processInputAsync(inputMode, inputValue);
+			if (!isActiveOperation(token)) return;
+
+			parsedData = result.parsedData;
+			phpSerializedValue = result.phpSerializedValue;
+			stats = result.stats;
 			parseError = null;
 		} catch (e) {
+			if (!isActiveOperation(token)) return;
 			parseError = e as Error;
 			parsedData = undefined;
 			stats = null;
@@ -137,14 +263,14 @@
 			}
 		}
 
-		processInput();
+		void processInput();
 	}
 
 	function handleOutputJsonChange(value: string) {
 		try {
 			const json = JSON.parse(value);
 			parsedData = json;
-			updateInputFromParsed();
+			void updateInputFromParsed();
 		} catch {
 			// Ignore parse errors while typing
 		}
@@ -166,36 +292,34 @@
 				break;
 		}
 		parsedData = updated;
-		updateInputFromParsed();
+		void updateInputFromParsed();
 	}
 
-	function updateInputFromParsed() {
+	async function updateInputFromParsed() {
+		const token = nextOperationToken();
 		if (parsedData === undefined) return;
 
 		try {
-			const phpValue = fromJson(parsedData);
-			const serialized = phpSerialize(phpValue);
-			phpSerializedValue = serialized;
+			const result = await processParsedDataAsync(parsedData, inputMode);
+			if (!isActiveOperation(token)) return;
 
-			if (inputMode === 'php') {
-				inputValue = serialized;
-			} else {
-				inputValue = JSON.stringify(parsedData, null, 2);
-			}
-
-			stats = computeStats(phpValue, serialized);
+			inputValue = result.inputValue;
+			phpSerializedValue = result.phpSerializedValue;
+			stats = result.stats;
 			parseError = null;
 		} catch (e) {
+			if (!isActiveOperation(token)) return;
 			parseError = e as Error;
 		}
 	}
 
 	function loadExample() {
 		inputValue = inputMode === 'php' ? phpExample : jsonExample;
-		processInput();
+		void processInput();
 	}
 
 	function clearInput() {
+		nextOperationToken();
 		inputValue = '';
 		parsedData = undefined;
 		parseError = null;
@@ -265,11 +389,11 @@
 		<div
 			class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden"
 		>
-			<button
-				onclick={() => {
-					inputMode = 'php';
-					processInput();
-				}}
+				<button
+					onclick={() => {
+						inputMode = 'php';
+						void processInput();
+					}}
 				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
 				'php'
 					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
@@ -277,11 +401,11 @@
 			>
 				PHP
 			</button>
-			<button
-				onclick={() => {
-					inputMode = 'json';
-					processInput();
-				}}
+				<button
+					onclick={() => {
+						inputMode = 'json';
+						void processInput();
+					}}
 				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
 				'json'
 					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
