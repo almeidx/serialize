@@ -35,6 +35,33 @@ export function parseArrayKeyMetadataEntry(
 	return { type: 'string', value: keyInfo.value };
 }
 
+export function parseArrayDataKeys(
+	value: JsonValue | undefined,
+	expectedLength: number
+): string[] | null {
+	if (value === undefined) return null;
+	if (!Array.isArray(value)) {
+		throw new Error("__php_data_keys__ must be an array when present");
+	}
+	if (value.length !== expectedLength) {
+		throw new Error(
+			`__php_data_keys__ length ${value.length} does not match __php_original_keys__ length ${expectedLength}`
+		);
+	}
+
+	const seen = new Set<string>();
+	return value.map((entry, index) => {
+		if (typeof entry !== 'string') {
+			throw new Error(`__php_data_keys__ entry at index ${index} must be a string`);
+		}
+		if (seen.has(entry)) {
+			throw new Error(`__php_data_keys__ contains duplicate key '${entry}'`);
+		}
+		seen.add(entry);
+		return entry;
+	});
+}
+
 export function parseVisibilityMap(value: JsonValue | undefined): Record<string, PhpVisibility> {
 	if (value === undefined) return {};
 

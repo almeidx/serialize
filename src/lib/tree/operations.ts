@@ -7,6 +7,7 @@ type PhpWrappedContainer = JsonObject & {
 	__php_type__: 'object' | 'array';
 	data?: JsonValue;
 	__php_original_keys__?: JsonValue;
+	__php_data_keys__?: JsonValue;
 	__php_property_meta__?: JsonValue;
 	__php_property_order__?: JsonValue;
 };
@@ -50,6 +51,50 @@ function toPhpArrayKey(rawKey: string): PhpArrayKey {
 	}
 
 	return { type: 'string', value: rawKey };
+}
+
+type PhpArrayMetadataEntry = {
+	key: PhpArrayKey;
+	dataKey: string;
+};
+
+function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMetadataEntry[] {
+	if (container.__php_type__ !== 'array') return [];
+	if (!Array.isArray(container.__php_original_keys__)) return [];
+
+	const originalKeys = container.__php_original_keys__.filter(
+		(entry): entry is PhpArrayKey =>
+			!!entry &&
+			typeof entry === 'object' &&
+			!Array.isArray(entry) &&
+			(entry as PhpArrayKey).type !== undefined &&
+			((entry as PhpArrayKey).type === 'int' || (entry as PhpArrayKey).type === 'string')
+	);
+
+	const explicitDataKeys =
+		Array.isArray(container.__php_data_keys__) &&
+		container.__php_data_keys__.length === originalKeys.length &&
+		container.__php_data_keys__.every((entry) => typeof entry === 'string')
+			? (container.__php_data_keys__ as string[])
+			: null;
+
+	return originalKeys.map((entry, index) => ({
+		key: entry,
+		dataKey: explicitDataKeys?.[index] ?? String(entry.value),
+	}));
+}
+
+function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
+	if (!usedKeys.has(baseKey)) return baseKey;
+
+	let counter = 2;
+	let candidate = `${baseKey}#${counter}`;
+	while (usedKeys.has(candidate)) {
+		counter++;
+		candidate = `${baseKey}#${counter}`;
+	}
+
+	return candidate;
 }
 
 export function setValueAtPath(obj: JsonValue, path: TreePath, value: JsonValue): JsonValue {
@@ -177,9 +222,9 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 
 		if (rest.length === 0) {
 			const hasDataKey = Object.prototype.hasOwnProperty.call(data, key);
-			const removedKeys = withoutPhpArrayKeyMetadata(object, key);
+			const removedArrayMeta = withoutPhpArrayKeyMetadata(object, key);
 			const removedObjectMeta = withoutPhpObjectPropertyMetadata(object, key);
-			if (!hasDataKey && !removedKeys && !removedObjectMeta) return obj;
+			if (!hasDataKey && !removedArrayMeta && !removedObjectMeta) return obj;
 
 			const nextData = { ...data };
 			if (hasDataKey) {
@@ -190,8 +235,9 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 				...object,
 				data: nextData
 			};
-			if (removedKeys) {
-				updated.__php_original_keys__ = removedKeys;
+			if (removedArrayMeta) {
+				updated.__php_original_keys__ = removedArrayMeta.originalKeys;
+				updated.__php_data_keys__ = removedArrayMeta.dataKeys;
 			}
 			if (removedObjectMeta) {
 				updated.__php_property_meta__ = removedObjectMeta.meta;
@@ -311,17 +357,20 @@ function addToContainer(target: JsonValue, key: string, value: JsonValue): JsonV
 		const data = asObjectRecord(object.data);
 		if (!data) return target;
 
+		const addedArrayMeta = withAddedPhpArrayKeyMetadata(object, key);
+		const dataKey = addedArrayMeta?.dataKey ?? key;
+
 		const updated: PhpWrappedContainer = {
 			...object,
 			data: {
 				...data,
-				[key]: value
+				[dataKey]: value
 			}
 		};
 
-		const addedKeys = withAddedPhpArrayKeyMetadata(updated, key);
-		if (addedKeys) {
-			updated.__php_original_keys__ = addedKeys;
+		if (addedArrayMeta?.patch) {
+			updated.__php_original_keys__ = addedArrayMeta.patch.originalKeys;
+			updated.__php_data_keys__ = addedArrayMeta.patch.dataKeys;
 		}
 		const addedObjectMeta = withAddedPhpObjectPropertyMetadata(updated, key);
 		if (addedObjectMeta) {
@@ -337,35 +386,92 @@ function addToContainer(target: JsonValue, key: string, value: JsonValue): JsonV
 	};
 }
 
+type PhpArrayMetadataPatch = {
+	originalKeys: PhpArrayKey[];
+	dataKeys?: string[];
+};
+
+type PhpArrayMetadataAddResult = {
+	dataKey: string;
+	patch: PhpArrayMetadataPatch | null;
+};
+
 function withAddedPhpArrayKeyMetadata(
 	container: PhpWrappedContainer,
 	rawKey: string
-): PhpArrayKey[] | null {
+): PhpArrayMetadataAddResult | null {
 	if (container.__php_type__ !== 'array') return null;
 
 	const keyInfo = toPhpArrayKey(rawKey);
-	const existing = Array.isArray(container.__php_original_keys__)
-		? (container.__php_original_keys__ as PhpArrayKey[])
-		: [];
+	const entries = getPhpArrayMetadataEntries(container);
 
-	const hasKey = existing.some(
-		(item) => item.type === keyInfo.type && String(item.value) === String(keyInfo.value)
+	const existing = entries.find(
+		(entry) =>
+			entry.key.type === keyInfo.type &&
+			String(entry.key.value) === String(keyInfo.value)
+	);
+	if (existing) {
+		return { dataKey: existing.dataKey, patch: null };
+	}
+
+	const usedDataKeys = new Set(entries.map((entry) => entry.dataKey));
+	const dataKey = makeUniqueArrayDataKey(rawKey, usedDataKeys);
+	const nextEntries = [...entries, { key: keyInfo, dataKey }];
+	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
+	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
+
+	const needsDataKeys = nextDataKeys.some(
+		(entry, index) => entry !== String(nextOriginalKeys[index].value)
 	);
 
-	if (hasKey) return null;
-	return [...existing, keyInfo];
+	return {
+		dataKey,
+		patch: {
+			originalKeys: nextOriginalKeys,
+			dataKeys: needsDataKeys ? nextDataKeys : undefined
+		}
+	};
 }
 
 function withoutPhpArrayKeyMetadata(
 	container: PhpWrappedContainer,
-	rawKey: string
-): PhpArrayKey[] | null {
+	rawDataKey: string
+): PhpArrayMetadataPatch | null {
 	if (container.__php_type__ !== 'array') return null;
-	if (!Array.isArray(container.__php_original_keys__)) return null;
 
-	const existing = container.__php_original_keys__ as PhpArrayKey[];
-	const next = existing.filter((entry) => String(entry.value) !== rawKey);
-	return next.length === existing.length ? null : next;
+	const entries = getPhpArrayMetadataEntries(container);
+	if (entries.length === 0) return null;
+
+	let changed = false;
+	let nextEntries: PhpArrayMetadataEntry[];
+
+	const byDataKeyIndex = entries.findIndex((entry) => entry.dataKey === rawDataKey);
+	if (byDataKeyIndex !== -1) {
+		nextEntries = entries.filter((_, index) => index !== byDataKeyIndex);
+		changed = true;
+	} else {
+		const legacyMatchIndices = entries
+			.map((entry, index) => ({ entry, index }))
+			.filter(({ entry }) => String(entry.key.value) === rawDataKey)
+			.map(({ index }) => index);
+
+		if (legacyMatchIndices.length === 0) return null;
+		nextEntries = entries.filter((_, index) => !legacyMatchIndices.includes(index));
+		changed = true;
+	}
+
+	if (!changed) return null;
+
+	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
+	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
+	const needsDataKeys = nextDataKeys.some(
+		(entry, index) => entry !== String(nextOriginalKeys[index].value)
+	);
+
+	return {
+		originalKeys: nextOriginalKeys,
+		dataKeys: needsDataKeys ? nextDataKeys : undefined
+	};
 }
 
 function withAddedPhpObjectPropertyMetadata(

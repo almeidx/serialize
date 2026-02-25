@@ -52,6 +52,17 @@ describe('fromJson metadata validation', () => {
 		expect(() => fromJson(malformed)).toThrow(/missing from data/);
 	});
 
+	it('rejects invalid __php_data_keys__ metadata', () => {
+		const malformed: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [{ type: 'int', value: 1 }],
+			__php_data_keys__: ['1', '1#2'],
+			data: { '1': 'one' }
+		};
+
+		expect(() => fromJson(malformed)).toThrow(/__php_data_keys__ length/i);
+	});
+
 	it('rejects invalid binary string payloads', () => {
 		const malformed: JsonValue = {
 			__php_type__: 'string',
@@ -207,6 +218,16 @@ describe('toJson/fromJson round-trip', () => {
 		expect(fromJson(toJson(input))).toEqual(input);
 	});
 
+	it('preserves UTF-8 binary payloads with non-latin characters', () => {
+		const input: PhpValue = {
+			type: 'string',
+			value: `${String.fromCharCode(0)}😀`,
+			binary: true
+		};
+
+		expect(fromJson(toJson(input))).toEqual(input);
+	});
+
 	it('preserves reference wrappers', () => {
 		const validGraph: PhpValue = {
 			type: 'array',
@@ -246,6 +267,28 @@ describe('toJson/fromJson round-trip', () => {
 			{ type: 'int', value: 1 },
 			{ type: 'string', value: 'foo' }
 		]);
+		expect(fromJson(json)).toEqual(input);
+	});
+
+	it('preserves colliding int/string array keys using data key metadata', () => {
+		const input: PhpValue = {
+			type: 'array',
+			entries: [
+				{
+					key: { type: 'int', value: 1 },
+					value: { type: 'string', value: 'int' }
+				},
+				{
+					key: { type: 'string', value: '1' },
+					value: { type: 'string', value: 'str' }
+				}
+			]
+		};
+
+		const json = toJson(input) as Record<string, JsonValue>;
+		expect(json.__php_data_keys__).toEqual(['1', '1#2']);
+		expect((json.data as Record<string, JsonValue>)['1']).toBe('int');
+		expect((json.data as Record<string, JsonValue>)['1#2']).toBe('str');
 		expect(fromJson(json)).toEqual(input);
 	});
 

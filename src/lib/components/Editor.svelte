@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type * as Monaco from 'monaco-editor';
 
 	interface Props {
@@ -10,7 +10,47 @@
 		theme?: 'light' | 'dark';
 	}
 
-	let { value, language = 'json', readonly = false, onchange, theme = 'dark' }: Props = $props();
+	let {
+		value,
+		language = 'json',
+		readonly = false,
+		onchange,
+		theme = 'dark',
+	}: Props = $props();
+
+	type WorkerFactory = new () => Worker;
+	type MonacoRuntime = {
+		monaco: typeof Monaco;
+		EditorWorker: WorkerFactory;
+		JsonWorker: WorkerFactory;
+	};
+
+	let monacoRuntimePromise: Promise<MonacoRuntime> | null = null;
+
+	function loadMonacoRuntime(): Promise<MonacoRuntime> {
+		if (monacoRuntimePromise) return monacoRuntimePromise;
+
+		monacoRuntimePromise = Promise.all([
+			import('monaco-editor/esm/vs/editor/editor.worker?worker'),
+			import('monaco-editor/esm/vs/language/json/json.worker?worker'),
+			import('monaco-editor/esm/vs/language/json/monaco.contribution'),
+			import('monaco-editor/esm/vs/editor/editor.api'),
+		]).then(
+			([editorWorkerModule, jsonWorkerModule, _jsonContribution, monacoModule]) => ({
+			monaco: monacoModule,
+			EditorWorker: editorWorkerModule.default as WorkerFactory,
+			JsonWorker: jsonWorkerModule.default as WorkerFactory,
+			}),
+		);
+
+		return monacoRuntimePromise;
+	}
+
+	type MonacoEnvironmentHost = typeof globalThis & {
+		MonacoEnvironment?: {
+			getWorker: (_workerId: string, label: string) => Worker;
+		};
+	};
 
 	let container: HTMLDivElement;
 	let editor = $state<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -20,8 +60,19 @@
 	let suppressNextChange = false;
 
 	onMount(async () => {
-		const loader = await import('@monaco-editor/loader');
-		const m = await loader.default.init();
+		const runtime = await loadMonacoRuntime();
+		const m = runtime.monaco;
+
+		const monacoHost = globalThis as MonacoEnvironmentHost;
+		monacoHost.MonacoEnvironment = {
+			getWorker: (_workerId, label) => {
+				if (label === 'json') {
+					return new runtime.JsonWorker();
+				}
+				return new runtime.EditorWorker();
+			},
+		};
+
 		monaco = m;
 
 		const ed = m.editor.create(container, {
@@ -36,7 +87,7 @@
 			automaticLayout: true,
 			tabSize: 2,
 			wordWrap: 'on',
-			padding: { top: 8, bottom: 8 }
+			padding: { top: 8, bottom: 8 },
 		});
 		editor = ed;
 

@@ -22,4 +22,9 @@ describe('parser validation', () => {
 			/object-like value/,
 		);
 	});
+
+	it('rejects negative array and object counts', () => {
+		expect(() => parse('a:-1:{}')).toThrow(/non-negative integer.*array element count/i);
+		expect(() => parse('O:3:"Foo":-1:{}')).toThrow(/non-negative integer.*object property count/i);
+	});
 });

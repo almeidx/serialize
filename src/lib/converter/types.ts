@@ -26,6 +26,7 @@ export interface JsonWithMeta {
 	__php_payload_base64__?: string;
 	__php_enum_case__?: string;
 	__php_original_keys__?: Array<{ type: 'int' | 'string'; value: number | string }>;
+	__php_data_keys__?: string[];
 	data?: JsonValue;
 	value?: JsonValue;
 }

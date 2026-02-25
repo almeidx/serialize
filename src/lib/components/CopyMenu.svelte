@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import * as menu from '@zag-js/menu';
+	import { mergeProps, normalizeProps, useMachine } from '@zag-js/svelte';
 
 	interface Props {
 		getJsonPretty: () => string;
@@ -8,15 +9,16 @@
 		disabled?: boolean;
 	}
 
-	let { getJsonPretty, getJsonMinified, getPhpSerialized, disabled = false }: Props = $props();
+	let {
+		getJsonPretty,
+		getJsonMinified,
+		getPhpSerialized,
+		disabled = false,
+	}: Props = $props();
 
-	let open = $state(false);
 	let copied = $state<string | null>(null);
 	let copyFailed = $state(false);
-
-	let menuRoot = $state<HTMLDivElement | null>(null);
 	let triggerButton = $state<HTMLButtonElement | null>(null);
-	let firstMenuItem = $state<HTMLButtonElement | null>(null);
 	let statusTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function scheduleStatusClear() {
@@ -25,15 +27,6 @@
 			copied = null;
 			copyFailed = false;
 		}, 2000);
-	}
-
-	async function toggleMenu() {
-		if (disabled) return;
-		open = !open;
-		if (open) {
-			await tick();
-			firstMenuItem?.focus();
-		}
 	}
 
 	async function copyToClipboard(text: string, label: string) {
@@ -45,28 +38,38 @@
 			copied = null;
 			copyFailed = true;
 		}
-		open = false;
 		scheduleStatusClear();
 		triggerButton?.focus();
 	}
 
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target;
-		if (!(target instanceof Node)) return;
-		if (!menuRoot?.contains(target)) {
-			open = false;
+	async function handleSelection(value: string) {
+		switch (value) {
+			case 'json-pretty':
+				await copyToClipboard(getJsonPretty(), 'pretty');
+				return;
+			case 'json-minified':
+				await copyToClipboard(getJsonMinified(), 'minified');
+				return;
+			case 'php-serialized':
+				await copyToClipboard(getPhpSerialized(), 'php');
+				return;
 		}
 	}
 
-	function handleWindowKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			open = false;
-		}
-	}
+	const service = useMachine(menu.machine, () => ({
+		id: 'copy-menu',
+		closeOnSelect: true,
+		'aria-label': 'Copy output format menu',
+		onSelect: (details) => {
+			void handleSelection(details.value);
+		},
+	}));
+
+	const api = $derived(menu.connect(service, normalizeProps));
 
 	$effect(() => {
-		if (disabled) {
-			open = false;
+		if (disabled && api.open) {
+			api.setOpen(false);
 		}
 	});
 
@@ -77,22 +80,14 @@
 	});
 </script>
 
-<svelte:window onclick={handleClickOutside} onkeydown={handleWindowKeydown} />
-
-<div class="relative copy-menu" bind:this={menuRoot}>
+<div class="relative copy-menu">
 	<button
 		bind:this={triggerButton}
-		onclick={toggleMenu}
 		{disabled}
-		class="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border
-				border-zinc-200 dark:border-zinc-700
-				text-zinc-500 dark:text-zinc-400
-				hover:bg-zinc-100 dark:hover:bg-zinc-800
-				disabled:opacity-50 disabled:cursor-not-allowed
-				transition-colors"
-		aria-haspopup="menu"
-		aria-expanded={open}
-		aria-controls="copy-menu-options"
+		{...mergeProps(api.getTriggerProps(), {
+			class:
+				'flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
+		})}
 	>
 		{#if copyFailed}
 			<svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
@@ -132,34 +127,43 @@
 		{/if}
 	</button>
 
-	{#if open}
+	{#if api.open}
 		<div
-			id="copy-menu-options"
-			role="menu"
-			class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1 z-50"
+			{...mergeProps(api.getPositionerProps(), {
+				class: 'absolute right-0 mt-1 w-48 z-50',
+			})}
 		>
-			<button
-				bind:this={firstMenuItem}
-				role="menuitem"
-				onclick={() => copyToClipboard(getJsonPretty(), 'pretty')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+			<div
+				{...mergeProps(api.getContentProps(), {
+					class:
+						'bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1',
+				})}
 			>
-				JSON (pretty)
-			</button>
-			<button
-				role="menuitem"
-				onclick={() => copyToClipboard(getJsonMinified(), 'minified')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-			>
-				JSON (minified)
-			</button>
-			<button
-				role="menuitem"
-				onclick={() => copyToClipboard(getPhpSerialized(), 'php')}
-				class="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-			>
-				PHP Serialized
+				<button
+					{...mergeProps(api.getItemProps({ value: 'json-pretty' }), {
+						class:
+							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
+					})}
+				>
+					JSON (pretty)
 				</button>
+				<button
+					{...mergeProps(api.getItemProps({ value: 'json-minified' }), {
+						class:
+							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
+					})}
+				>
+					JSON (minified)
+				</button>
+				<button
+					{...mergeProps(api.getItemProps({ value: 'php-serialized' }), {
+						class:
+							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
+					})}
+				>
+					PHP Serialized
+				</button>
+			</div>
 		</div>
 	{/if}
 </div>

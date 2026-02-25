@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onDestroy, onMount } from 'svelte';
+	import * as slider from '@zag-js/slider';
+	import * as toggleGroup from '@zag-js/toggle-group';
+	import { mergeProps, normalizeProps, useMachine } from '@zag-js/svelte';
 	import { type JsonValue } from '$lib/converter';
 	import {
 		processInputValue,
@@ -14,9 +17,8 @@
 		ProcessorWorkerResponse,
 	} from '$lib/processor/worker-protocol';
 	import type { Stats } from '$lib/stats';
-	import EditableTreeView, {
-		type TreeOperation,
-	} from '$lib/components/EditableTreeView.svelte';
+	import EditableTreeView from '$lib/components/EditableTreeView.svelte';
+	import type { TreeOperation } from '$lib/components/tree-types';
 	import {
 		addAtPath,
 		deleteAtPath,
@@ -45,7 +47,6 @@
 
 	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
-	let isDragging = $state(false);
 
 	let processorWorker = $state<Worker | null>(null);
 	let workerRequestSeq = 0;
@@ -59,10 +60,29 @@
 		}
 	>();
 
+	function getStoredTheme(): 'light' | 'dark' | null {
+		if (!browser) return null;
+		try {
+			const stored = localStorage.getItem('theme');
+			return stored === 'light' || stored === 'dark' ? stored : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function setStoredTheme(value: 'light' | 'dark'): void {
+		if (!browser) return;
+		try {
+			localStorage.setItem('theme', value);
+		} catch {
+			// Ignore storage failures (private mode / blocked storage)
+		}
+	}
+
 	function getInitialTheme(): 'light' | 'dark' {
 		if (!browser) return 'dark';
-		const stored = localStorage.getItem('theme');
-		if (stored === 'light' || stored === 'dark') return stored;
+		const stored = getStoredTheme();
+		if (stored) return stored;
 		return window.matchMedia('(prefers-color-scheme: dark)').matches
 			? 'dark'
 			: 'light';
@@ -104,6 +124,57 @@
 		return null;
 	}
 
+	const inputModeToggleService = useMachine(toggleGroup.machine, () => ({
+		id: 'input-mode-toggle',
+		value: [inputMode],
+		orientation: 'horizontal' as const,
+		deselectable: false,
+		multiple: false,
+		onValueChange: (details) => {
+			const next = details.value[0] as InputMode | undefined;
+			if (!next || next === inputMode) return;
+			inputMode = next;
+			void processInput();
+		},
+	}));
+
+	const outputViewToggleService = useMachine(toggleGroup.machine, () => ({
+		id: 'output-view-toggle',
+		value: [outputView],
+		orientation: 'horizontal' as const,
+		deselectable: false,
+		multiple: false,
+		onValueChange: (details) => {
+			const next = details.value[0] as OutputView | undefined;
+			if (!next || next === outputView) return;
+			outputView = next;
+		},
+	}));
+
+	const splitSliderService = useMachine(slider.machine, () => ({
+		id: 'panel-split-slider',
+		value: [splitPosition],
+		min: 20,
+		max: 80,
+		step: 1,
+		'aria-label': ['Resize panels'],
+		onValueChange: (details) => {
+			const nextValue = details.value[0];
+			if (typeof nextValue !== 'number') return;
+			splitPosition = Math.max(20, Math.min(80, Math.round(nextValue)));
+		},
+	}));
+
+	const inputModeToggleApi = $derived(
+		toggleGroup.connect(inputModeToggleService, normalizeProps),
+	);
+	const outputViewToggleApi = $derived(
+		toggleGroup.connect(outputViewToggleService, normalizeProps),
+	);
+	const splitSliderApi = $derived(
+		slider.connect(splitSliderService, normalizeProps),
+	);
+
 	$effect(() => {
 		const currentTheme = theme;
 		if (browser) {
@@ -111,7 +182,7 @@
 				'dark',
 				currentTheme === 'dark',
 			);
-			localStorage.setItem('theme', currentTheme);
+			setStoredTheme(currentTheme);
 		}
 	});
 
@@ -280,7 +351,7 @@
 	function handleTreeChange(op: TreeOperation) {
 		const currentData = parsedData !== undefined ? parsedData : {};
 
-		let updated: JsonValue;
+		let updated: JsonValue = currentData;
 		switch (op.type) {
 			case 'set':
 				updated = setValueAtPath(currentData, op.path, op.value);
@@ -345,39 +416,7 @@
 	function getPhpSerializedForCopy(): string {
 		return phpSerializedValue;
 	}
-
-	function handleDragStart(e: MouseEvent) {
-		isDragging = true;
-		e.preventDefault();
-	}
-
-	function handleDrag(e: MouseEvent) {
-		if (!isDragging) return;
-		const container = document.getElementById('split-container');
-		if (!container) return;
-		const rect = container.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const percentage = (x / rect.width) * 100;
-		splitPosition = Math.max(20, Math.min(80, percentage));
-	}
-
-	function handleDragEnd() {
-		isDragging = false;
-	}
-
-	function handleSplitHandleKeydown(event: KeyboardEvent) {
-		const step = event.shiftKey ? 10 : 2;
-		if (event.key === 'ArrowLeft') {
-			event.preventDefault();
-			splitPosition = Math.max(20, splitPosition - step);
-		} else if (event.key === 'ArrowRight') {
-			event.preventDefault();
-			splitPosition = Math.min(80, splitPosition + step);
-		}
-	}
 </script>
-
-<svelte:window onmousemove={handleDrag} onmouseup={handleDragEnd} />
 
 <div
 	class="h-screen flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
@@ -388,29 +427,33 @@
 		<h1 class="text-lg font-semibold">Serialize</h1>
 
 		<div
-			class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+			{...mergeProps(inputModeToggleApi.getRootProps(), {
+				class:
+					'flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden',
+				'aria-label': 'Input format',
+			})}
 		>
-				<button
-					onclick={() => {
-						inputMode = 'php';
-						void processInput();
-					}}
-				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
-				'php'
-					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
-					: 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+			<button
+				type="button"
+				{...mergeProps(inputModeToggleApi.getItemProps({ value: 'php' }), {
+					class: `px-3 py-1 text-sm font-medium transition-colors ${
+						inputMode === 'php'
+							? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+							: 'bg-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+					}`,
+				})}
 			>
 				PHP
 			</button>
-				<button
-					onclick={() => {
-						inputMode = 'json';
-						void processInput();
-					}}
-				class="px-3 py-1 text-sm font-medium transition-colors {inputMode ===
-				'json'
-					? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
-					: 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+			<button
+				type="button"
+				{...mergeProps(inputModeToggleApi.getItemProps({ value: 'json' }), {
+					class: `px-3 py-1 text-sm font-medium transition-colors ${
+						inputMode === 'json'
+							? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+							: 'bg-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+					}`,
+				})}
 			>
 				JSON
 			</button>
@@ -438,7 +481,7 @@
 				target="_blank"
 				rel="noopener noreferrer"
 				class="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400"
-				title="View on GitHub"
+				aria-label="View on GitHub"
 			>
 				<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
 					<path
@@ -452,7 +495,7 @@
 				target="_blank"
 				rel="noopener noreferrer"
 				class="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400 hidden sm:block"
-				title="almeidx.dev"
+				aria-label="almeidx.dev"
 			>
 				<svg
 					class="w-5 h-5"
@@ -472,7 +515,7 @@
 			<button
 				onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}
 				class="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-				title="Toggle theme"
+				aria-label="Toggle theme"
 			>
 				{#if theme === 'dark'}
 					<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -525,19 +568,33 @@
 			</div>
 
 			<!-- Drag Handle (desktop only) -->
-			<button
-				type="button"
-				class="hidden md:block w-1 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors absolute top-0 bottom-0 z-10"
-				style="left: {splitPosition}%"
-				onmousedown={handleDragStart}
-				onkeydown={handleSplitHandleKeydown}
-				role="slider"
-				aria-orientation="horizontal"
-				aria-label="Resize panels"
-				aria-valuemin={20}
-				aria-valuemax={80}
-				aria-valuenow={Math.round(splitPosition)}
-			></button>
+			<div
+				{...mergeProps(splitSliderApi.getRootProps(), {
+					class: 'hidden md:block absolute inset-0 z-10 pointer-events-none',
+				})}
+			>
+				<label class="sr-only" {...splitSliderApi.getLabelProps()}>Resize panels</label>
+				<div
+					{...mergeProps(splitSliderApi.getControlProps(), {
+						class: 'relative w-full h-full pointer-events-none',
+					})}
+				>
+					<div
+						{...mergeProps(splitSliderApi.getTrackProps(), {
+							class: 'absolute inset-0 pointer-events-none',
+						})}
+					>
+						<div {...splitSliderApi.getRangeProps()} class="hidden"></div>
+					</div>
+					<div
+						{...mergeProps(splitSliderApi.getThumbProps({ index: 0 }), {
+							class:
+								'pointer-events-auto w-1 h-full -ml-0.5 bg-transparent cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 focus-visible:bg-blue-500 outline-none',
+						})}
+					></div>
+					<input {...splitSliderApi.getHiddenInputProps({ index: 0 })} />
+				</div>
+			</div>
 
 			<!-- Bottom/Right: Output (Tree or JSON) -->
 			<div class="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -558,23 +615,33 @@
 								Object.keys(treeData).length === 0}
 						/>
 						<div
-							class="flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+							{...mergeProps(outputViewToggleApi.getRootProps(), {
+								class:
+									'flex rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden',
+								'aria-label': 'Output view',
+							})}
 						>
 							<button
-								onclick={() => (outputView = 'tree')}
-								class="px-2 py-0.5 text-xs font-medium transition-colors {outputView ===
-								'tree'
-									? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-									: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+								type="button"
+								{...mergeProps(outputViewToggleApi.getItemProps({ value: 'tree' }), {
+									class: `px-2 py-0.5 text-xs font-medium transition-colors ${
+										outputView === 'tree'
+											? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+											: 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+									}`,
+								})}
 							>
 								Tree
 							</button>
 							<button
-								onclick={() => (outputView = 'json')}
-								class="px-2 py-0.5 text-xs font-medium transition-colors {outputView ===
-								'json'
-									? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-									: 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+								type="button"
+								{...mergeProps(outputViewToggleApi.getItemProps({ value: 'json' }), {
+									class: `px-2 py-0.5 text-xs font-medium transition-colors ${
+										outputView === 'json'
+											? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+											: 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+									}`,
+								})}
 							>
 								JSON
 							</button>

@@ -67,6 +67,40 @@ describe('tree operations', () => {
 		expect(keys).toEqual([{ type: 'int', value: 1 }]);
 	});
 
+	it('adds collision-safe data keys for wrapped PHP arrays', () => {
+		const input: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [{ type: 'string', value: '1' }],
+			data: { '1': 'string-value' }
+		};
+
+		const added = addAtPath(input, [], '1', 'int-value') as Record<string, JsonValue>;
+		expect((added.data as Record<string, JsonValue>)['1']).toBe('string-value');
+		expect((added.data as Record<string, JsonValue>)['1#2']).toBe('int-value');
+		expect(added.__php_original_keys__).toEqual([
+			{ type: 'string', value: '1' },
+			{ type: 'int', value: 1 }
+		]);
+		expect(added.__php_data_keys__).toEqual(['1', '1#2']);
+	});
+
+	it('removes wrapped array metadata by data key when __php_data_keys__ is present', () => {
+		const input: JsonValue = {
+			__php_type__: 'array',
+			__php_original_keys__: [
+				{ type: 'string', value: '1' },
+				{ type: 'int', value: 1 }
+			],
+			__php_data_keys__: ['1', '1#2'],
+			data: { '1': 'string-value', '1#2': 'int-value' }
+		};
+
+		const deleted = deleteAtPath(input, ['1#2']) as Record<string, JsonValue>;
+		expect((deleted.data as Record<string, JsonValue>)['1#2']).toBeUndefined();
+		expect(deleted.__php_original_keys__).toEqual([{ type: 'string', value: '1' }]);
+		expect(deleted.__php_data_keys__).toBeUndefined();
+	});
+
 	it('updates PHP object property metadata when adding values', () => {
 		const input: JsonValue = {
 			__php_type__: 'object',

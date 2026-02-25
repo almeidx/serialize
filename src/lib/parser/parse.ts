@@ -138,7 +138,7 @@ class Parser {
 	private parseArray(): PhpValue {
 		this.expect("a");
 		this.expect(":");
-		const count = this.readNumber();
+		const count = this.readNonNegativeInteger("array element count");
 		this.expect(":");
 		this.expect("{");
 
@@ -173,7 +173,7 @@ class Parser {
 		const className = this.readBytes(classNameLength);
 		this.expect('"');
 		this.expect(":");
-		const propertyCount = this.readNumber();
+		const propertyCount = this.readNonNegativeInteger("object property count");
 		this.expect(":");
 		this.expect("{");
 
@@ -363,6 +363,18 @@ class Parser {
 		}
 
 		return parseInt(this.input.slice(start, this.position), 10);
+	}
+
+	private readNonNegativeInteger(context: string): number {
+		const value = this.readNumber();
+		if (!Number.isSafeInteger(value) || value < 0) {
+			throw new ParseError(
+				`Expected non-negative integer for ${context}, got '${value}'`,
+				this.position,
+				this.getContext(),
+			);
+		}
+		return value;
 	}
 
 	private readUntil(char: string): string {

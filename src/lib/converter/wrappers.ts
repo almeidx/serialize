@@ -3,6 +3,7 @@ import type { JsonObject, JsonValue } from './types';
 import {
 	hasBinaryControlCharacters,
 	makeUniqueKey,
+	parseArrayDataKeys,
 	parseArrayKeyMetadataEntry,
 	parsePropertyMetaMap,
 	parsePropertyOrder,
@@ -11,11 +12,59 @@ import {
 	requireObject,
 } from './validation';
 
+function bytesToBinary(bytes: Uint8Array): string {
+	let binary = '';
+	for (let i = 0; i < bytes.length; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+	return binary;
+}
+
+function binaryToBytes(binary: string): Uint8Array {
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
+}
+
+function encodeBase64Utf8(value: string): string {
+	const bytes = new TextEncoder().encode(value);
+	if (typeof btoa === 'function') {
+		return btoa(bytesToBinary(bytes));
+	}
+	throw new Error('No base64 encoder available in this environment');
+}
+
+function decodeBase64Utf8(base64: string, invalidMessage: string): string {
+	try {
+		if (typeof atob !== 'function') {
+			throw new Error('No base64 decoder available in this environment');
+		}
+		const bytes = binaryToBytes(atob(base64));
+		return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+	} catch {
+		throw new Error(invalidMessage);
+	}
+}
+
+function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
+	if (!usedKeys.has(baseKey)) return baseKey;
+
+	let counter = 2;
+	let candidate = `${baseKey}#${counter}`;
+	while (usedKeys.has(candidate)) {
+		counter += 1;
+		candidate = `${baseKey}#${counter}`;
+	}
+	return candidate;
+}
+
 export function toBinaryWrapper(value: string): JsonObject {
 	return {
 		__php_type__: 'string',
 		__php_binary__: true,
-		value: btoa(value),
+		value: encodeBase64Utf8(value),
 	};
 }
 
@@ -31,20 +80,33 @@ export function toArrayWrapper(
 	entries: PhpArrayEntry[],
 	toJsonValue: (value: PhpValue) => JsonValue
 ): JsonObject {
+	const originalKeys = entries.map((entry) => ({
+		type: entry.key.type as 'int' | 'string',
+		value: entry.key.value,
+	}));
+
+	const usedDataKeys = new Set<string>();
+	const dataKeys: string[] = [];
+	const data: JsonObject = {};
+
+	for (const [index, entry] of entries.entries()) {
+		const canonicalKey = String(originalKeys[index].value);
+		const dataKey = makeUniqueArrayDataKey(canonicalKey, usedDataKeys);
+		usedDataKeys.add(dataKey);
+		dataKeys.push(dataKey);
+		data[dataKey] = toJsonValue(entry.value);
+	}
+
 	const result: JsonObject = {
 		__php_type__: 'array',
-		__php_original_keys__: entries.map((entry) => ({
-			type: entry.key.type as 'int' | 'string',
-			value: entry.key.value,
-		})) as JsonValue,
+		__php_original_keys__: originalKeys as JsonValue,
+		data,
 	};
 
-	const data: JsonObject = {};
-	for (const entry of entries) {
-		const key = entry.key.type === 'int' ? String(entry.key.value) : entry.key.value;
-		data[key] = toJsonValue(entry.value);
+	const needsDataKeys = dataKeys.some((key, index) => key !== String(originalKeys[index].value));
+	if (needsDataKeys) {
+		result.__php_data_keys__ = dataKeys as JsonValue;
 	}
-	result.data = data;
 
 	return result;
 }
@@ -87,7 +149,7 @@ export function toCustomObjectWrapper(className: string, payload: string): JsonO
 	return {
 		__php_type__: 'custom_object',
 		__php_class__: className,
-		__php_payload_base64__: btoa(payload),
+		__php_payload_base64__: encodeBase64Utf8(payload),
 	};
 }
 
@@ -107,12 +169,7 @@ export function fromBinaryWrapper(obj: JsonObject): PhpValue {
 		throw new Error("Binary string wrapper requires a base64 'value' string");
 	}
 
-	let decoded: string;
-	try {
-		decoded = atob(obj.value);
-	} catch {
-		throw new Error('Binary string wrapper contains invalid base64 data');
-	}
+	const decoded = decodeBase64Utf8(obj.value, 'Binary string wrapper contains invalid base64 data');
 
 	return {
 		type: 'string',
@@ -150,13 +207,35 @@ export function fromArrayWrapper(
 
 	const originalKeys: Array<{ type: 'int' | 'string'; value: number | string }> =
 		obj.__php_original_keys__.map((entry, index) => parseArrayKeyMetadataEntry(entry, index));
+	const dataKeys = parseArrayDataKeys(obj.__php_data_keys__, originalKeys.length);
+
+	if (dataKeys) {
+		const entries: PhpArrayEntry[] = originalKeys.map((keyInfo, index) => {
+			const dataKey = dataKeys[index];
+			if (!(dataKey in data)) {
+				throw new Error(`Array wrapper data key '${dataKey}' is missing from data`);
+			}
+
+			return {
+				key:
+					keyInfo.type === 'int'
+						? { type: 'int', value: keyInfo.value as number }
+						: { type: 'string', value: keyInfo.value as string },
+				value: fromJsonValue(data[dataKey]),
+			};
+		});
+
+		return { type: 'array', entries };
+	}
 
 	const seen = new Set<string>();
 	const entries: PhpArrayEntry[] = originalKeys.map((keyInfo) => {
 		const keyStr = String(keyInfo.value);
 		const dedupeKey = `${keyInfo.type}:${keyStr}`;
 		if (seen.has(dedupeKey)) {
-			throw new Error(`Array wrapper has duplicate key metadata for '${keyStr}'`);
+			throw new Error(
+				`Array wrapper has duplicate key metadata for '${keyStr}' and requires '__php_data_keys__'`
+			);
 		}
 		seen.add(dedupeKey);
 
@@ -235,12 +314,10 @@ export function fromCustomObjectWrapper(obj: JsonObject): PhpValue {
 		throw new Error("Custom object wrapper requires '__php_payload_base64__' string");
 	}
 
-	let payload: string;
-	try {
-		payload = atob(obj.__php_payload_base64__);
-	} catch {
-		throw new Error('Custom object wrapper contains invalid base64 payload');
-	}
+	const payload = decodeBase64Utf8(
+		obj.__php_payload_base64__,
+		'Custom object wrapper contains invalid base64 payload'
+	);
 
 	return {
 		type: 'custom_object',
