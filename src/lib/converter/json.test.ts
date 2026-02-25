@@ -112,4 +112,24 @@ describe('toJson/fromJson round-trip', () => {
 			]
 		});
 	});
+
+	it('preserves binary string wrappers', () => {
+		const input = {
+			type: 'string',
+			value: `a${String.fromCharCode(0)}b`,
+			binary: true
+		} as const;
+
+		expect(fromJson(toJson(input))).toEqual(input);
+	});
+
+	it('preserves reference wrappers', () => {
+		const input = {
+			type: 'reference',
+			index: 7,
+			isObject: true
+		} as const;
+
+		expect(fromJson(toJson(input))).toEqual(input);
+	});
 });
