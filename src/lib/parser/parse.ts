@@ -1,20 +1,11 @@
-import {
-	ParseError,
-	type PhpValue,
-	type PhpArrayEntry,
-	type PhpObjectProperty,
-} from './types';
+import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
 
 export function parse(input: string): PhpValue {
 	const parser = new Parser(input);
 	const result = parser.parseValue();
 
 	if (parser.position < input.length) {
-		throw new ParseError(
-			'Unexpected data after end of serialized value',
-			parser.position,
-			parser.getContext(),
-		);
+		throw new ParseError("Unexpected data after end of serialized value", parser.position, parser.getContext());
 	}
 
 	return result;
@@ -35,45 +26,41 @@ class Parser {
 		let parsedValue: PhpValue;
 
 		switch (type) {
-			case 'N':
+			case "N":
 				parsedValue = this.parseNull();
 				break;
-			case 'b':
+			case "b":
 				parsedValue = this.parseBool();
 				break;
-			case 'i':
+			case "i":
 				parsedValue = this.parseInt();
 				break;
-			case 'd':
+			case "d":
 				parsedValue = this.parseFloat();
 				break;
-			case 's':
+			case "s":
 				parsedValue = this.parseString();
 				break;
-			case 'a':
+			case "a":
 				parsedValue = this.parseArray();
 				break;
-			case 'O':
+			case "O":
 				parsedValue = this.parseObject();
 				break;
-			case 'C':
+			case "C":
 				parsedValue = this.parseCustomObject();
 				break;
-			case 'E':
+			case "E":
 				parsedValue = this.parseEnum();
 				break;
-			case 'R':
+			case "R":
 				parsedValue = this.parseReference(false);
 				break;
-			case 'r':
+			case "r":
 				parsedValue = this.parseReference(true);
 				break;
 			default:
-				throw new ParseError(
-					`Unknown type identifier '${type}'`,
-					this.position,
-					this.getContext(),
-				);
+				throw new ParseError(`Unknown type identifier '${type}'`, this.position, this.getContext());
 		}
 
 		this.parsedValues[currentIndex] = parsedValue;
@@ -81,91 +68,79 @@ class Parser {
 	}
 
 	private parseNull(): PhpValue {
-		this.expect('N');
-		this.expect(';');
-		return { type: 'null' };
+		this.expect("N");
+		this.expect(";");
+		return { type: "null" };
 	}
 
 	private parseBool(): PhpValue {
-		this.expect('b');
-		this.expect(':');
+		this.expect("b");
+		this.expect(":");
 		const value = this.readChar();
-		if (value !== '0' && value !== '1') {
-			throw new ParseError(
-				`Expected '0' or '1' for boolean`,
-				this.position - 1,
-				this.getContext(),
-			);
+		if (value !== "0" && value !== "1") {
+			throw new ParseError(`Expected '0' or '1' for boolean`, this.position - 1, this.getContext());
 		}
-		this.expect(';');
-		return { type: 'bool', value: value === '1' };
+		this.expect(";");
+		return { type: "bool", value: value === "1" };
 	}
 
 	private parseInt(): PhpValue {
-		this.expect('i');
-		this.expect(':');
+		this.expect("i");
+		this.expect(":");
 		const value = this.readNumber();
-		this.expect(';');
-		return { type: 'int', value: Math.floor(value) };
+		this.expect(";");
+		return { type: "int", value: Math.floor(value) };
 	}
 
 	private parseFloat(): PhpValue {
-		this.expect('d');
-		this.expect(':');
-		const valueStr = this.readUntil(';');
+		this.expect("d");
+		this.expect(":");
+		const valueStr = this.readUntil(";");
 
 		let value: number;
-		if (valueStr === 'INF') {
+		if (valueStr === "INF") {
 			value = Infinity;
-		} else if (valueStr === '-INF') {
+		} else if (valueStr === "-INF") {
 			value = -Infinity;
-		} else if (valueStr === 'NAN') {
+		} else if (valueStr === "NAN") {
 			value = NaN;
 		} else {
 			if (!isValidFloatLiteral(valueStr)) {
-				throw new ParseError(
-					`Invalid float value '${valueStr}'`,
-					this.position,
-					this.getContext(),
-				);
+				throw new ParseError(`Invalid float value '${valueStr}'`, this.position, this.getContext());
 			}
 
 			value = parseFloat(valueStr);
 			if (isNaN(value)) {
-				throw new ParseError(
-					`Invalid float value '${valueStr}'`,
-					this.position,
-					this.getContext(),
-				);
+				throw new ParseError(`Invalid float value '${valueStr}'`, this.position, this.getContext());
 			}
 		}
 
-		this.expect(';');
-		return { type: 'float', value };
+		this.expect(";");
+		return { type: "float", value };
 	}
 
 	private parseString(): PhpValue {
-		this.expect('s');
-		this.expect(':');
+		this.expect("s");
+		this.expect(":");
 		const length = this.readNumber();
-		this.expect(':');
+		this.expect(":");
 		this.expect('"');
 
 		const value = this.readBytes(length);
 		this.expect('"');
-		this.expect(';');
+		this.expect(";");
 
 		const hasBinary = hasBinaryControlCharacters(value);
 
-		return { type: 'string', value, binary: hasBinary ? true : undefined };
+		return { type: "string", value, binary: hasBinary ? true : undefined };
 	}
 
 	private parseArray(): PhpValue {
-		this.expect('a');
-		this.expect(':');
+		this.expect("a");
+		this.expect(":");
 		const count = this.readNumber();
-		this.expect(':');
-		this.expect('{');
+		this.expect(":");
+		this.expect("{");
 
 		const entries: PhpArrayEntry[] = [];
 
@@ -173,82 +148,74 @@ class Parser {
 			const keyType = this.peek();
 			let key: PhpValue;
 
-			if (keyType === 'i') {
+			if (keyType === "i") {
 				key = this.parseInt();
-			} else if (keyType === 's') {
+			} else if (keyType === "s") {
 				key = this.parseString();
 			} else {
-				throw new ParseError(
-					`Array key must be integer or string, got '${keyType}'`,
-					this.position,
-					this.getContext(),
-				);
+				throw new ParseError(`Array key must be integer or string, got '${keyType}'`, this.position, this.getContext());
 			}
 
 			const value = this.parseValue();
-			entries.push({ key: key as PhpArrayEntry['key'], value });
+			entries.push({ key: key as PhpArrayEntry["key"], value });
 		}
 
-		this.expect('}');
-		return { type: 'array', entries };
+		this.expect("}");
+		return { type: "array", entries };
 	}
 
 	private parseObject(): PhpValue {
-		this.expect('O');
-		this.expect(':');
+		this.expect("O");
+		this.expect(":");
 		const classNameLength = this.readNumber();
-		this.expect(':');
+		this.expect(":");
 		this.expect('"');
 		const className = this.readBytes(classNameLength);
 		this.expect('"');
-		this.expect(':');
+		this.expect(":");
 		const propertyCount = this.readNumber();
-		this.expect(':');
-		this.expect('{');
+		this.expect(":");
+		this.expect("{");
 
 		const properties: PhpObjectProperty[] = [];
 
 		for (let i = 0; i < propertyCount; i++) {
-			this.expect('s');
-			this.expect(':');
+			this.expect("s");
+			this.expect(":");
 			const nameLength = this.readNumber();
-			this.expect(':');
+			this.expect(":");
 			this.expect('"');
 			const rawName = this.readBytes(nameLength);
 			this.expect('"');
-			this.expect(';');
+			this.expect(";");
 
-			const {
-				name,
-				visibility,
-				className: propClassName,
-			} = this.parsePropertyName(rawName, className);
+			const { name, visibility, className: propClassName } = this.parsePropertyName(rawName, className);
 
 			const value = this.parseValue();
 			properties.push({ name, visibility, className: propClassName, value });
 		}
 
-		this.expect('}');
-		return { type: 'object', className, properties };
+		this.expect("}");
+		return { type: "object", className, properties };
 	}
 
 	private parseCustomObject(): PhpValue {
-		this.expect('C');
-		this.expect(':');
+		this.expect("C");
+		this.expect(":");
 		const classNameLength = this.readNumber();
-		this.expect(':');
+		this.expect(":");
 		this.expect('"');
 		const className = this.readBytes(classNameLength);
 		this.expect('"');
-		this.expect(':');
+		this.expect(":");
 		const payloadLength = this.readNumber();
-		this.expect(':');
-		this.expect('{');
+		this.expect(":");
+		this.expect("{");
 		const payload = this.readBytes(payloadLength);
-		this.expect('}');
+		this.expect("}");
 
 		return {
-			type: 'custom_object',
+			type: "custom_object",
 			className,
 			payload,
 			binary: hasBinaryControlCharacters(payload) ? true : undefined,
@@ -256,26 +223,22 @@ class Parser {
 	}
 
 	private parseEnum(): PhpValue {
-		this.expect('E');
-		this.expect(':');
+		this.expect("E");
+		this.expect(":");
 		const enumNameLength = this.readNumber();
-		this.expect(':');
+		this.expect(":");
 		this.expect('"');
 		const enumName = this.readBytes(enumNameLength);
 		this.expect('"');
-		this.expect(';');
+		this.expect(";");
 
-		const separator = enumName.indexOf(':');
+		const separator = enumName.indexOf(":");
 		if (separator <= 0 || separator === enumName.length - 1) {
-			throw new ParseError(
-				`Invalid enum identifier '${enumName}'`,
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError(`Invalid enum identifier '${enumName}'`, this.position, this.getContext());
 		}
 
 		return {
-			type: 'enum',
+			type: "enum",
 			className: enumName.slice(0, separator),
 			caseName: enumName.slice(separator + 1),
 		};
@@ -286,35 +249,34 @@ class Parser {
 		defaultClassName: string,
 	): {
 		name: string;
-		visibility: 'public' | 'protected' | 'private';
+		visibility: "public" | "protected" | "private";
 		className?: string;
 	} {
-		if (rawName.startsWith('\0*\0')) {
-			return { name: rawName.slice(3), visibility: 'protected' };
+		if (rawName.startsWith("\0*\0")) {
+			return { name: rawName.slice(3), visibility: "protected" };
 		}
 
-		if (rawName.startsWith('\0')) {
-			const endNull = rawName.indexOf('\0', 1);
+		if (rawName.startsWith("\0")) {
+			const endNull = rawName.indexOf("\0", 1);
 			if (endNull !== -1) {
 				const propClassName = rawName.slice(1, endNull);
 				const name = rawName.slice(endNull + 1);
 				return {
 					name,
-					visibility: 'private',
-					className:
-						propClassName !== defaultClassName ? propClassName : undefined,
+					visibility: "private",
+					className: propClassName !== defaultClassName ? propClassName : undefined,
 				};
 			}
 		}
 
-		return { name: rawName, visibility: 'public' };
+		return { name: rawName, visibility: "public" };
 	}
 
 	private parseReference(isObject: boolean): PhpValue {
-		this.expect(isObject ? 'r' : 'R');
-		this.expect(':');
+		this.expect(isObject ? "r" : "R");
+		this.expect(":");
 		const index = this.readNumber();
-		this.expect(';');
+		this.expect(";");
 
 		if (!Number.isSafeInteger(index) || index < 1) {
 			throw new ParseError(
@@ -324,20 +286,12 @@ class Parser {
 			);
 		}
 		if (index >= this.refIndex) {
-			throw new ParseError(
-				`Reference index ${index} points to an unresolved value`,
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError(`Reference index ${index} points to an unresolved value`, this.position, this.getContext());
 		}
 
 		const target = this.resolveReferenceTarget(index);
 		if (!target) {
-			throw new ParseError(
-				`Reference index ${index} does not exist`,
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError(`Reference index ${index} does not exist`, this.position, this.getContext());
 		}
 
 		if (isObject && !isObjectLike(target)) {
@@ -348,7 +302,7 @@ class Parser {
 			);
 		}
 
-		return { type: 'reference', index, isObject };
+		return { type: "reference", index, isObject };
 	}
 
 	private resolveReferenceTarget(index: number): PhpValue | null {
@@ -358,7 +312,7 @@ class Parser {
 		const visited = new Set<number>();
 		let currentIndex = index;
 
-		while (current.type === 'reference') {
+		while (current.type === "reference") {
 			if (visited.has(currentIndex)) return null;
 			visited.add(currentIndex);
 
@@ -372,22 +326,14 @@ class Parser {
 
 	private peek(): string {
 		if (this.position >= this.input.length) {
-			throw new ParseError(
-				'Unexpected end of input',
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError("Unexpected end of input", this.position, this.getContext());
 		}
 		return this.input[this.position];
 	}
 
 	private readChar(): string {
 		if (this.position >= this.input.length) {
-			throw new ParseError(
-				'Unexpected end of input',
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError("Unexpected end of input", this.position, this.getContext());
 		}
 		return this.input[this.position++];
 	}
@@ -395,11 +341,7 @@ class Parser {
 	private expect(char: string): void {
 		const actual = this.readChar();
 		if (actual !== char) {
-			throw new ParseError(
-				`Expected '${char}', got '${actual}'`,
-				this.position - 1,
-				this.getContext(),
-			);
+			throw new ParseError(`Expected '${char}', got '${actual}'`, this.position - 1, this.getContext());
 		}
 	}
 
@@ -407,20 +349,17 @@ class Parser {
 		const start = this.position;
 		let hasDigits = false;
 
-		if (this.peek() === '-' || this.peek() === '+') {
+		if (this.peek() === "-" || this.peek() === "+") {
 			this.position++;
 		}
 
-		while (
-			this.position < this.input.length &&
-			/[0-9]/.test(this.input[this.position])
-		) {
+		while (this.position < this.input.length && /[0-9]/.test(this.input[this.position])) {
 			this.position++;
 			hasDigits = true;
 		}
 
 		if (!hasDigits) {
-			throw new ParseError('Expected number', start, this.getContext());
+			throw new ParseError("Expected number", start, this.getContext());
 		}
 
 		return parseInt(this.input.slice(start, this.position), 10);
@@ -428,10 +367,7 @@ class Parser {
 
 	private readUntil(char: string): string {
 		const start = this.position;
-		while (
-			this.position < this.input.length &&
-			this.input[this.position] !== char
-		) {
+		while (this.position < this.input.length && this.input[this.position] !== char) {
 			this.position++;
 		}
 		return this.input.slice(start, this.position);
@@ -439,11 +375,7 @@ class Parser {
 
 	private readBytes(length: number): string {
 		if (!Number.isSafeInteger(length) || length < 0) {
-			throw new ParseError(
-				'Expected non-negative byte length',
-				this.position,
-				this.getContext(),
-			);
+			throw new ParseError("Expected non-negative byte length", this.position, this.getContext());
 		}
 
 		const start = this.position;
@@ -489,20 +421,12 @@ class Parser {
 		if (code >= 0xd800 && code <= 0xdbff) {
 			const next = this.input.charCodeAt(index + 1);
 			if (Number.isNaN(next) || next < 0xdc00 || next > 0xdfff) {
-				throw new ParseError(
-					'Invalid UTF-16 string: unmatched high surrogate',
-					index,
-					this.getContext(index),
-				);
+				throw new ParseError("Invalid UTF-16 string: unmatched high surrogate", index, this.getContext(index));
 			}
 			return { codeUnits: 2, utf8Bytes: 4 };
 		}
 		if (code >= 0xdc00 && code <= 0xdfff) {
-			throw new ParseError(
-				'Invalid UTF-16 string: unexpected low surrogate',
-				index,
-				this.getContext(index),
-			);
+			throw new ParseError("Invalid UTF-16 string: unexpected low surrogate", index, this.getContext(index));
 		}
 
 		return { codeUnits: 1, utf8Bytes: 3 };
@@ -520,12 +444,7 @@ class Parser {
 function hasBinaryControlCharacters(value: string): boolean {
 	for (let i = 0; i < value.length; i++) {
 		const code = value.charCodeAt(i);
-		if (
-			(code >= 0 && code <= 8) ||
-			code === 11 ||
-			code === 12 ||
-			(code >= 14 && code <= 31)
-		) {
+		if ((code >= 0 && code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
 			return true;
 		}
 	}
@@ -537,9 +456,5 @@ function isValidFloatLiteral(value: string): boolean {
 }
 
 function isObjectLike(value: PhpValue): boolean {
-	return (
-		value.type === 'object' ||
-		value.type === 'custom_object' ||
-		value.type === 'enum'
-	);
+	return value.type === "object" || value.type === "custom_object" || value.type === "enum";
 }

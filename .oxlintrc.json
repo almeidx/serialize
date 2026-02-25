@@ -2,12 +2,5 @@
 	"env": {
 		"builtin": true
 	},
-	"ignorePatterns": [
-		".svelte-kit/**",
-		".wrangler/**",
-		"coverage/**",
-		"node_modules/**",
-		"src/app.d.ts",
-		"**/*.svelte"
-	]
+	"ignorePatterns": [".svelte-kit/**", ".wrangler/**", "coverage/**", "node_modules/**", "src/app.d.ts", "**/*.svelte"]
 }
