@@ -34,7 +34,7 @@
 	let inputMode = $state<InputMode>('php');
 	let outputView = $state<OutputView>('tree');
 	let inputValue = $state('');
-	let parsedData = $state<JsonValue | undefined>(undefined);
+	let parsedData = $state.raw<JsonValue | undefined>(undefined);
 	let parseError = $state<Error | null>(null);
 	let stats = $state<Stats | null>(null);
 	let phpSerializedValue = $state('');
@@ -245,7 +245,16 @@
 
 		return await new Promise<ProcessorWorkerResponse>((resolve, reject) => {
 			pendingWorkerRequests.set(request.id, { resolve, reject });
-			processorWorker?.postMessage(request);
+			try {
+				processorWorker?.postMessage(request);
+			} catch (error) {
+				pendingWorkerRequests.delete(request.id);
+				reject(
+					error instanceof Error
+						? error
+						: new Error('Failed to send request to processor worker'),
+				);
+			}
 		});
 	}
 
@@ -280,19 +289,31 @@
 			return processParsedData(data, mode);
 		}
 
-		const response = await postWorkerRequest({
-			id: ++workerRequestSeq,
-			type: 'process-parsed',
-			inputMode: mode,
-			parsedData: data,
-		});
-		if (!response.ok) {
-			throw new Error(response.error);
+		try {
+			const response = await postWorkerRequest({
+				id: ++workerRequestSeq,
+				type: 'process-parsed',
+				inputMode: mode,
+				parsedData: data,
+			});
+			if (!response.ok) {
+				throw new Error(response.error);
+			}
+			if (response.type !== 'process-parsed') {
+				throw new Error('Unexpected worker response type');
+			}
+			return response.result;
+		} catch (error) {
+			// Fallback when structured cloning fails for any state wrapper edge case.
+			if (
+				(error instanceof DOMException && error.name === 'DataCloneError') ||
+				(error instanceof Error &&
+					(error.name === 'DataCloneError' || /could not be cloned/i.test(error.message)))
+			) {
+				return processParsedData(data, mode);
+			}
+			throw error;
 		}
-		if (response.type !== 'process-parsed') {
-			throw new Error('Unexpected worker response type');
-		}
-		return response.result;
 	}
 
 	async function processInput() {

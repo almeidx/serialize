@@ -18,8 +18,15 @@
 		disabled = false,
 	}: Props = $props();
 
+	function toSelectorSafeIdSegment(value: string): string {
+		const escaped = value.replace(/[^a-zA-Z0-9_-]/g, (ch) => `_${ch.charCodeAt(0).toString(16)}`);
+		return escaped.length > 0 ? escaped : 'node';
+	}
+
+	const safeId = $derived(toSelectorSafeIdSegment(id));
+
 	const service = useMachine(menu.machine, () => ({
-		id: `type-menu-${id}`,
+		id: `type-menu-${safeId}`,
 		closeOnSelect: true,
 		'aria-label': `Type options for ${id}`,
 		onSelect: (details) => {

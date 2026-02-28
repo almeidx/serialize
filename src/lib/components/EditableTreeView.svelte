@@ -56,8 +56,10 @@
 	const typeOptions = ['string', 'number', 'boolean', 'null', 'array', 'object'];
 
 	function nodeIdForPath(targetPath: TreePath): string {
-		if (targetPath.length === 0) return '$root';
-		return `$${JSON.stringify(targetPath)}`;
+		if (targetPath.length === 0) return 'node-root';
+		return 'node-' + targetPath.map((seg) =>
+			String(seg).replace(/[^a-zA-Z0-9_-]/g, (ch) => `_${ch.charCodeAt(0).toString(16)}`)
+		).join('--');
 	}
 
 	function parsePhpArrayKeys(value: JsonValue | undefined): PhpArrayKey[] {
