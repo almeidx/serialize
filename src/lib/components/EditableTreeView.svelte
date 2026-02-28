@@ -329,7 +329,15 @@
 		onchange({ type: 'set', path, value: newValue });
 	}
 
-	function startAddKey() {
+	async function startAddKey(event?: MouseEvent) {
+		event?.preventDefault();
+		event?.stopPropagation();
+
+		if (expandable && !nodeState?.expanded) {
+			activeTreeApi.expand([activeTreeNode.value]);
+			await tick();
+		}
+
 		addingKey = true;
 		newKeyName = type === 'array' ? String(childNodes.length) : '';
 	}
