@@ -11,26 +11,26 @@ export type PhpValue =
 	| PhpReference;
 
 export interface PhpNull {
-	type: 'null';
+	type: "null";
 }
 
 export interface PhpBool {
-	type: 'bool';
+	type: "bool";
 	value: boolean;
 }
 
 export interface PhpInt {
-	type: 'int';
+	type: "int";
 	value: number;
 }
 
 export interface PhpFloat {
-	type: 'float';
+	type: "float";
 	value: number;
 }
 
 export interface PhpString {
-	type: 'string';
+	type: "string";
 	value: string;
 	binary?: boolean;
 }
@@ -41,38 +41,38 @@ export interface PhpArrayEntry {
 }
 
 export interface PhpArray {
-	type: 'array';
+	type: "array";
 	entries: PhpArrayEntry[];
 }
 
 export interface PhpObjectProperty {
 	name: string;
-	visibility: 'public' | 'protected' | 'private';
+	visibility: "public" | "protected" | "private";
 	className?: string;
 	value: PhpValue;
 }
 
 export interface PhpObject {
-	type: 'object';
+	type: "object";
 	className: string;
 	properties: PhpObjectProperty[];
 }
 
 export interface PhpCustomObject {
-	type: 'custom_object';
+	type: "custom_object";
 	className: string;
 	payload: string;
 	binary?: boolean;
 }
 
 export interface PhpEnum {
-	type: 'enum';
+	type: "enum";
 	className: string;
 	caseName: string;
 }
 
 export interface PhpReference {
-	type: 'reference';
+	type: "reference";
 	index: number;
 	isObject: boolean;
 }
@@ -81,9 +81,9 @@ export class ParseError extends Error {
 	constructor(
 		message: string,
 		public position: number,
-		public context: string
+		public context: string,
 	) {
 		super(`${message} at position ${position}: "${context}"`);
-		this.name = 'ParseError';
+		this.name = "ParseError";
 	}
 }

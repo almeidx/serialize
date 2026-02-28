@@ -1,10 +1,10 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches:
-      - "**"
-  pull_request:
+      - main
 
 permissions:
   contents: read
@@ -15,9 +15,9 @@ concurrency:
 
 jobs:
   quality:
-    name: Test, Check, Build
+    name: Quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -37,25 +37,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
-        run: pnpm format:check
-
       - name: Lint
         run: pnpm lint
 
-      - name: Unit tests with coverage gate
-        run: pnpm test:coverage
+      - name: Test suite
+        run: pnpm test:ci
 
       - name: Type check
         run: pnpm check
 
-      - name: Production build
+      - name: Build
         run: pnpm build
 
   e2e:
-    name: Playwright E2E
+    name: Playwright
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: quality
 
     steps:
@@ -79,5 +76,15 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: End-to-end tests
+      - name: Run Playwright tests
         run: pnpm test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

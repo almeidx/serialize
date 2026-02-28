@@ -1,5 +1,5 @@
-import type { PhpArrayEntry, PhpObjectProperty, PhpValue } from '../parser/types';
-import type { JsonObject, JsonValue } from './types';
+import type { PhpArrayEntry, PhpObjectProperty, PhpValue } from "../parser/types";
+import type { JsonObject, JsonValue } from "./types";
 import {
 	hasBinaryControlCharacters,
 	makeUniqueKey,
@@ -10,10 +10,10 @@ import {
 	parseStringMap,
 	parseVisibilityMap,
 	requireObject,
-} from './validation';
+} from "./validation";
 
 function bytesToBinary(bytes: Uint8Array): string {
-	let binary = '';
+	let binary = "";
 	for (let i = 0; i < bytes.length; i++) {
 		binary += String.fromCharCode(bytes[i]);
 	}
@@ -30,19 +30,19 @@ function binaryToBytes(binary: string): Uint8Array {
 
 function encodeBase64Utf8(value: string): string {
 	const bytes = new TextEncoder().encode(value);
-	if (typeof btoa === 'function') {
+	if (typeof btoa === "function") {
 		return btoa(bytesToBinary(bytes));
 	}
-	throw new Error('No base64 encoder available in this environment');
+	throw new Error("No base64 encoder available in this environment");
 }
 
 function decodeBase64Utf8(base64: string, invalidMessage: string): string {
 	try {
-		if (typeof atob !== 'function') {
-			throw new Error('No base64 decoder available in this environment');
+		if (typeof atob !== "function") {
+			throw new Error("No base64 decoder available in this environment");
 		}
 		const bytes = binaryToBytes(atob(base64));
-		return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+		return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 	} catch {
 		throw new Error(invalidMessage);
 	}
@@ -62,7 +62,7 @@ function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string 
 
 export function toBinaryWrapper(value: string): JsonObject {
 	return {
-		__php_type__: 'string',
+		__php_type__: "string",
 		__php_binary__: true,
 		value: encodeBase64Utf8(value),
 	};
@@ -70,18 +70,15 @@ export function toBinaryWrapper(value: string): JsonObject {
 
 export function toReferenceWrapper(index: number, isObject: boolean): JsonObject {
 	return {
-		__php_type__: 'reference',
+		__php_type__: "reference",
 		__php_ref_index__: index,
 		__php_ref_object__: isObject,
 	};
 }
 
-export function toArrayWrapper(
-	entries: PhpArrayEntry[],
-	toJsonValue: (value: PhpValue) => JsonValue
-): JsonObject {
+export function toArrayWrapper(entries: PhpArrayEntry[], toJsonValue: (value: PhpValue) => JsonValue): JsonObject {
 	const originalKeys = entries.map((entry) => ({
-		type: entry.key.type as 'int' | 'string',
+		type: entry.key.type as "int" | "string",
 		value: entry.key.value,
 	}));
 
@@ -98,7 +95,7 @@ export function toArrayWrapper(
 	}
 
 	const result: JsonObject = {
-		__php_type__: 'array',
+		__php_type__: "array",
 		__php_original_keys__: originalKeys as JsonValue,
 		data,
 	};
@@ -114,10 +111,10 @@ export function toArrayWrapper(
 export function toObjectWrapper(
 	className: string,
 	properties: PhpObjectProperty[],
-	toJsonValue: (value: PhpValue) => JsonValue
+	toJsonValue: (value: PhpValue) => JsonValue,
 ): JsonObject {
 	const result: JsonObject = {
-		__php_type__: 'object',
+		__php_type__: "object",
 		__php_class__: className,
 	};
 
@@ -147,7 +144,7 @@ export function toObjectWrapper(
 
 export function toCustomObjectWrapper(className: string, payload: string): JsonObject {
 	return {
-		__php_type__: 'custom_object',
+		__php_type__: "custom_object",
 		__php_class__: className,
 		__php_payload_base64__: encodeBase64Utf8(payload),
 	};
@@ -155,7 +152,7 @@ export function toCustomObjectWrapper(className: string, payload: string): JsonO
 
 export function toEnumWrapper(className: string, caseName: string): JsonObject {
 	return {
-		__php_type__: 'enum',
+		__php_type__: "enum",
 		__php_class__: className,
 		__php_enum_case__: caseName,
 	};
@@ -165,48 +162,46 @@ export function fromBinaryWrapper(obj: JsonObject): PhpValue {
 	if (obj.__php_binary__ !== true) {
 		throw new Error("Binary string wrapper must include '__php_binary__': true");
 	}
-	if (typeof obj.value !== 'string') {
+	if (typeof obj.value !== "string") {
 		throw new Error("Binary string wrapper requires a base64 'value' string");
 	}
 
-	const decoded = decodeBase64Utf8(obj.value, 'Binary string wrapper contains invalid base64 data');
+	const decoded = decodeBase64Utf8(obj.value, "Binary string wrapper contains invalid base64 data");
 
 	return {
-		type: 'string',
+		type: "string",
 		value: decoded,
 		binary: true,
 	};
 }
 
 export function fromReferenceWrapper(obj: JsonObject): PhpValue {
-	if (typeof obj.__php_ref_index__ !== 'number' || !Number.isInteger(obj.__php_ref_index__)) {
-		throw new Error('Reference wrapper requires integer __php_ref_index__');
+	if (typeof obj.__php_ref_index__ !== "number" || !Number.isInteger(obj.__php_ref_index__)) {
+		throw new Error("Reference wrapper requires integer __php_ref_index__");
 	}
 	if (obj.__php_ref_index__ < 1) {
-		throw new Error('Reference wrapper __php_ref_index__ must be >= 1');
+		throw new Error("Reference wrapper __php_ref_index__ must be >= 1");
 	}
-	if (typeof obj.__php_ref_object__ !== 'boolean') {
-		throw new Error('Reference wrapper requires boolean __php_ref_object__');
+	if (typeof obj.__php_ref_object__ !== "boolean") {
+		throw new Error("Reference wrapper requires boolean __php_ref_object__");
 	}
 
 	return {
-		type: 'reference',
+		type: "reference",
 		index: obj.__php_ref_index__,
 		isObject: obj.__php_ref_object__,
 	};
 }
 
-export function fromArrayWrapper(
-	obj: JsonObject,
-	fromJsonValue: (json: JsonValue) => PhpValue
-): PhpValue {
+export function fromArrayWrapper(obj: JsonObject, fromJsonValue: (json: JsonValue) => PhpValue): PhpValue {
 	const data = requireObject(obj.data, "Array wrapper 'data'");
 	if (!Array.isArray(obj.__php_original_keys__)) {
 		throw new Error("Array wrapper requires '__php_original_keys__' array");
 	}
 
-	const originalKeys: Array<{ type: 'int' | 'string'; value: number | string }> =
-		obj.__php_original_keys__.map((entry, index) => parseArrayKeyMetadataEntry(entry, index));
+	const originalKeys: Array<{ type: "int" | "string"; value: number | string }> = obj.__php_original_keys__.map(
+		(entry, index) => parseArrayKeyMetadataEntry(entry, index),
+	);
 	const dataKeys = parseArrayDataKeys(obj.__php_data_keys__, originalKeys.length);
 
 	if (dataKeys) {
@@ -218,14 +213,14 @@ export function fromArrayWrapper(
 
 			return {
 				key:
-					keyInfo.type === 'int'
-						? { type: 'int', value: keyInfo.value as number }
-						: { type: 'string', value: keyInfo.value as string },
+					keyInfo.type === "int"
+						? { type: "int", value: keyInfo.value as number }
+						: { type: "string", value: keyInfo.value as string },
 				value: fromJsonValue(data[dataKey]),
 			};
 		});
 
-		return { type: 'array', entries };
+		return { type: "array", entries };
 	}
 
 	const seen = new Set<string>();
@@ -233,9 +228,7 @@ export function fromArrayWrapper(
 		const keyStr = String(keyInfo.value);
 		const dedupeKey = `${keyInfo.type}:${keyStr}`;
 		if (seen.has(dedupeKey)) {
-			throw new Error(
-				`Array wrapper has duplicate key metadata for '${keyStr}' and requires '__php_data_keys__'`
-			);
+			throw new Error(`Array wrapper has duplicate key metadata for '${keyStr}' and requires '__php_data_keys__'`);
 		}
 		seen.add(dedupeKey);
 
@@ -245,21 +238,18 @@ export function fromArrayWrapper(
 
 		return {
 			key:
-				keyInfo.type === 'int'
-					? { type: 'int', value: keyInfo.value as number }
-					: { type: 'string', value: keyInfo.value as string },
+				keyInfo.type === "int"
+					? { type: "int", value: keyInfo.value as number }
+					: { type: "string", value: keyInfo.value as string },
 			value: fromJsonValue(data[keyStr]),
 		};
 	});
 
-	return { type: 'array', entries };
+	return { type: "array", entries };
 }
 
-export function fromObjectWrapper(
-	obj: JsonObject,
-	fromJsonValue: (json: JsonValue) => PhpValue
-): PhpValue {
-	if (typeof obj.__php_class__ !== 'string' || obj.__php_class__.length === 0) {
+export function fromObjectWrapper(obj: JsonObject, fromJsonValue: (json: JsonValue) => PhpValue): PhpValue {
+	if (typeof obj.__php_class__ !== "string" || obj.__php_class__.length === 0) {
 		throw new Error("Object wrapper requires non-empty '__php_class__'");
 	}
 
@@ -267,7 +257,7 @@ export function fromObjectWrapper(
 	const propertyMeta = parsePropertyMetaMap(obj.__php_property_meta__);
 	const propertyOrder = parsePropertyOrder(obj.__php_property_order__, data);
 	const visibilities = parseVisibilityMap(obj.__php_visibility__);
-	const propertyClasses = parseStringMap(obj.__php_property_class__, '__php_property_class__');
+	const propertyClasses = parseStringMap(obj.__php_property_class__, "__php_property_class__");
 
 	for (const key of Object.keys(propertyMeta)) {
 		if (!(key in data)) {
@@ -297,30 +287,27 @@ export function fromObjectWrapper(
 		const meta = propertyMeta[key];
 		return {
 			name: meta?.name ?? key,
-			visibility: meta?.visibility ?? visibilities[key] ?? 'public',
+			visibility: meta?.visibility ?? visibilities[key] ?? "public",
 			className: meta?.className ?? propertyClasses[key],
 			value: fromJsonValue(value),
 		};
 	});
 
-	return { type: 'object', className: obj.__php_class__, properties };
+	return { type: "object", className: obj.__php_class__, properties };
 }
 
 export function fromCustomObjectWrapper(obj: JsonObject): PhpValue {
-	if (typeof obj.__php_class__ !== 'string' || obj.__php_class__.length === 0) {
+	if (typeof obj.__php_class__ !== "string" || obj.__php_class__.length === 0) {
 		throw new Error("Custom object wrapper requires non-empty '__php_class__'");
 	}
-	if (typeof obj.__php_payload_base64__ !== 'string') {
+	if (typeof obj.__php_payload_base64__ !== "string") {
 		throw new Error("Custom object wrapper requires '__php_payload_base64__' string");
 	}
 
-	const payload = decodeBase64Utf8(
-		obj.__php_payload_base64__,
-		'Custom object wrapper contains invalid base64 payload'
-	);
+	const payload = decodeBase64Utf8(obj.__php_payload_base64__, "Custom object wrapper contains invalid base64 payload");
 
 	return {
-		type: 'custom_object',
+		type: "custom_object",
 		className: obj.__php_class__,
 		payload,
 		binary: hasBinaryControlCharacters(payload) ? true : undefined,
@@ -328,15 +315,15 @@ export function fromCustomObjectWrapper(obj: JsonObject): PhpValue {
 }
 
 export function fromEnumWrapper(obj: JsonObject): PhpValue {
-	if (typeof obj.__php_class__ !== 'string' || obj.__php_class__.length === 0) {
+	if (typeof obj.__php_class__ !== "string" || obj.__php_class__.length === 0) {
 		throw new Error("Enum wrapper requires non-empty '__php_class__'");
 	}
-	if (typeof obj.__php_enum_case__ !== 'string' || obj.__php_enum_case__.length === 0) {
+	if (typeof obj.__php_enum_case__ !== "string" || obj.__php_enum_case__.length === 0) {
 		throw new Error("Enum wrapper requires non-empty '__php_enum_case__'");
 	}
 
 	return {
-		type: 'enum',
+		type: "enum",
 		className: obj.__php_class__,
 		caseName: obj.__php_enum_case__,
 	};

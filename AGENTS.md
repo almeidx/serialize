@@ -56,12 +56,13 @@ src/
 ### PHP Metadata Preservation
 
 PHP objects are represented as wrapper objects in JSON:
+
 ```json
 {
-  "__php_type__": "object",
-  "__php_class__": "User",
-  "__php_visibility__": { "password": "private" },
-  "data": { "name": "Alice", "password": "secret" }
+	"__php_type__": "object",
+	"__php_class__": "User",
+	"__php_visibility__": { "password": "private" },
+	"data": { "name": "Alice", "password": "secret" }
 }
 ```
 

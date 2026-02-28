@@ -549,7 +549,7 @@
 		>
 			<!-- Top/Left: Input Editor -->
 			<div
-				class="h-1/2 w-full md:h-auto md:w-[var(--split-position)] flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-700"
+				class="h-1/2 w-full md:h-auto md:w-(--split-position) flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-700"
 				style:--split-position="{splitPosition}%"
 			>
 				<div

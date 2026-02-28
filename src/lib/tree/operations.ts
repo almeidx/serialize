@@ -1,36 +1,36 @@
-import type { JsonValue } from '../converter/json';
+import type { JsonValue } from "../converter/json";
 
 export type TreePath = Array<string | number>;
 
 type JsonObject = Record<string, JsonValue>;
 type PhpWrappedContainer = JsonObject & {
-	__php_type__: 'object' | 'array';
+	__php_type__: "object" | "array";
 	data?: JsonValue;
 	__php_original_keys__?: JsonValue;
 	__php_data_keys__?: JsonValue;
 	__php_property_meta__?: JsonValue;
 	__php_property_order__?: JsonValue;
 };
-type PhpArrayKey = { type: 'int' | 'string'; value: number | string };
+type PhpArrayKey = { type: "int" | "string"; value: number | string };
 type PhpObjectPropertyMeta = {
 	name: string;
-	visibility: 'public' | 'protected' | 'private';
+	visibility: "public" | "protected" | "private";
 	className?: string;
 };
 
 function isPhpWrappedContainer(value: JsonValue): value is PhpWrappedContainer {
-	if (!value || Array.isArray(value) || typeof value !== 'object') return false;
+	if (!value || Array.isArray(value) || typeof value !== "object") return false;
 	const type = (value as JsonObject).__php_type__;
-	return type === 'object' || type === 'array';
+	return type === "object" || type === "array";
 }
 
 function asObjectRecord(value: JsonValue | undefined): JsonObject | null {
-	if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+	if (!value || Array.isArray(value) || typeof value !== "object") return null;
 	return value as JsonObject;
 }
 
 function parseArrayIndex(segment: string | number): number | null {
-	if (typeof segment === 'number') {
+	if (typeof segment === "number") {
 		if (Number.isInteger(segment) && segment >= 0) return segment;
 		return null;
 	}
@@ -41,16 +41,15 @@ function parseArrayIndex(segment: string | number): number | null {
 	return parsed;
 }
 
-
 function toPhpArrayKey(rawKey: string): PhpArrayKey {
 	if (/^-?(?:0|[1-9]\d*)$/.test(rawKey)) {
 		const intValue = Number(rawKey);
 		if (Number.isSafeInteger(intValue)) {
-			return { type: 'int', value: intValue };
+			return { type: "int", value: intValue };
 		}
 	}
 
-	return { type: 'string', value: rawKey };
+	return { type: "string", value: rawKey };
 }
 
 type PhpArrayMetadataEntry = {
@@ -59,22 +58,22 @@ type PhpArrayMetadataEntry = {
 };
 
 function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMetadataEntry[] {
-	if (container.__php_type__ !== 'array') return [];
+	if (container.__php_type__ !== "array") return [];
 	if (!Array.isArray(container.__php_original_keys__)) return [];
 
 	const originalKeys = container.__php_original_keys__.filter(
 		(entry): entry is PhpArrayKey =>
 			!!entry &&
-			typeof entry === 'object' &&
+			typeof entry === "object" &&
 			!Array.isArray(entry) &&
 			(entry as PhpArrayKey).type !== undefined &&
-			((entry as PhpArrayKey).type === 'int' || (entry as PhpArrayKey).type === 'string')
+			((entry as PhpArrayKey).type === "int" || (entry as PhpArrayKey).type === "string"),
 	);
 
 	const explicitDataKeys =
 		Array.isArray(container.__php_data_keys__) &&
 		container.__php_data_keys__.length === originalKeys.length &&
-		container.__php_data_keys__.every((entry) => typeof entry === 'string')
+		container.__php_data_keys__.every((entry) => typeof entry === "string")
 			? (container.__php_data_keys__ as string[])
 			: null;
 
@@ -148,8 +147,8 @@ function setValueAtPathRecursive(obj: JsonValue, path: TreePath, value: JsonValu
 				...object,
 				data: {
 					...data,
-					[key]: value
-				}
+					[key]: value,
+				},
 			};
 		}
 
@@ -163,15 +162,15 @@ function setValueAtPathRecursive(obj: JsonValue, path: TreePath, value: JsonValu
 			...object,
 			data: {
 				...data,
-				[key]: updatedChild
-			}
+				[key]: updatedChild,
+			},
 		};
 	}
 
 	if (rest.length === 0) {
 		return {
 			...object,
-			[key]: value
+			[key]: value,
 		};
 	}
 
@@ -183,7 +182,7 @@ function setValueAtPathRecursive(obj: JsonValue, path: TreePath, value: JsonValu
 
 	return {
 		...object,
-		[key]: updatedChild
+		[key]: updatedChild,
 	};
 }
 
@@ -233,7 +232,7 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 
 			const updated: PhpWrappedContainer = {
 				...object,
-				data: nextData
+				data: nextData,
 			};
 			if (removedArrayMeta) {
 				updated.__php_original_keys__ = removedArrayMeta.originalKeys;
@@ -256,8 +255,8 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 			...object,
 			data: {
 				...data,
-				[key]: updatedChild
-			}
+				[key]: updatedChild,
+			},
 		};
 	}
 
@@ -276,7 +275,7 @@ function deleteAtPathRecursive(obj: JsonValue, path: TreePath): JsonValue {
 
 	return {
 		...object,
-		[key]: updatedChild
+		[key]: updatedChild,
 	};
 }
 
@@ -319,8 +318,8 @@ function addAtPathRecursive(obj: JsonValue, path: TreePath, key: string, value: 
 			...object,
 			data: {
 				...data,
-				[containerKey]: updatedChild
-			}
+				[containerKey]: updatedChild,
+			},
 		};
 	}
 
@@ -332,7 +331,7 @@ function addAtPathRecursive(obj: JsonValue, path: TreePath, key: string, value: 
 
 	return {
 		...object,
-		[containerKey]: updatedChild
+		[containerKey]: updatedChild,
 	};
 }
 
@@ -364,8 +363,8 @@ function addToContainer(target: JsonValue, key: string, value: JsonValue): JsonV
 			...object,
 			data: {
 				...data,
-				[dataKey]: value
-			}
+				[dataKey]: value,
+			},
 		};
 
 		if (addedArrayMeta?.patch) {
@@ -382,7 +381,7 @@ function addToContainer(target: JsonValue, key: string, value: JsonValue): JsonV
 
 	return {
 		...object,
-		[key]: value
+		[key]: value,
 	};
 }
 
@@ -398,17 +397,15 @@ type PhpArrayMetadataAddResult = {
 
 function withAddedPhpArrayKeyMetadata(
 	container: PhpWrappedContainer,
-	rawKey: string
+	rawKey: string,
 ): PhpArrayMetadataAddResult | null {
-	if (container.__php_type__ !== 'array') return null;
+	if (container.__php_type__ !== "array") return null;
 
 	const keyInfo = toPhpArrayKey(rawKey);
 	const entries = getPhpArrayMetadataEntries(container);
 
 	const existing = entries.find(
-		(entry) =>
-			entry.key.type === keyInfo.type &&
-			String(entry.key.value) === String(keyInfo.value)
+		(entry) => entry.key.type === keyInfo.type && String(entry.key.value) === String(keyInfo.value),
 	);
 	if (existing) {
 		return { dataKey: existing.dataKey, patch: null };
@@ -420,24 +417,19 @@ function withAddedPhpArrayKeyMetadata(
 	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
 	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
 
-	const needsDataKeys = nextDataKeys.some(
-		(entry, index) => entry !== String(nextOriginalKeys[index].value)
-	);
+	const needsDataKeys = nextDataKeys.some((entry, index) => entry !== String(nextOriginalKeys[index].value));
 
 	return {
 		dataKey,
 		patch: {
 			originalKeys: nextOriginalKeys,
-			dataKeys: needsDataKeys ? nextDataKeys : undefined
-		}
+			dataKeys: needsDataKeys ? nextDataKeys : undefined,
+		},
 	};
 }
 
-function withoutPhpArrayKeyMetadata(
-	container: PhpWrappedContainer,
-	rawDataKey: string
-): PhpArrayMetadataPatch | null {
-	if (container.__php_type__ !== 'array') return null;
+function withoutPhpArrayKeyMetadata(container: PhpWrappedContainer, rawDataKey: string): PhpArrayMetadataPatch | null {
+	if (container.__php_type__ !== "array") return null;
 
 	const entries = getPhpArrayMetadataEntries(container);
 	if (entries.length === 0) return null;
@@ -464,27 +456,23 @@ function withoutPhpArrayKeyMetadata(
 
 	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
 	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
-	const needsDataKeys = nextDataKeys.some(
-		(entry, index) => entry !== String(nextOriginalKeys[index].value)
-	);
+	const needsDataKeys = nextDataKeys.some((entry, index) => entry !== String(nextOriginalKeys[index].value));
 
 	return {
 		originalKeys: nextOriginalKeys,
-		dataKeys: needsDataKeys ? nextDataKeys : undefined
+		dataKeys: needsDataKeys ? nextDataKeys : undefined,
 	};
 }
 
 function withAddedPhpObjectPropertyMetadata(
 	container: PhpWrappedContainer,
-	rawKey: string
+	rawKey: string,
 ): { meta: JsonObject; order: string[] } | null {
-	if (container.__php_type__ !== 'object') return null;
+	if (container.__php_type__ !== "object") return null;
 
 	const existingMeta = asObjectRecord(container.__php_property_meta__) ?? {};
 	const existingOrder = Array.isArray(container.__php_property_order__)
-		? container.__php_property_order__.filter(
-				(entry): entry is string => typeof entry === 'string',
-			)
+		? container.__php_property_order__.filter((entry): entry is string => typeof entry === "string")
 		: [];
 
 	const hasMeta = Object.prototype.hasOwnProperty.call(existingMeta, rawKey);
@@ -497,7 +485,7 @@ function withAddedPhpObjectPropertyMetadata(
 				...existingMeta,
 				[rawKey]: {
 					name: rawKey,
-					visibility: 'public',
+					visibility: "public",
 				} as PhpObjectPropertyMeta as JsonValue,
 			};
 	const nextOrder = hasOrder ? existingOrder.slice() : [...existingOrder, rawKey];
@@ -507,15 +495,13 @@ function withAddedPhpObjectPropertyMetadata(
 
 function withoutPhpObjectPropertyMetadata(
 	container: PhpWrappedContainer,
-	rawKey: string
+	rawKey: string,
 ): { meta: JsonObject; order: string[] } | null {
-	if (container.__php_type__ !== 'object') return null;
+	if (container.__php_type__ !== "object") return null;
 
 	const existingMeta = asObjectRecord(container.__php_property_meta__) ?? {};
 	const existingOrder = Array.isArray(container.__php_property_order__)
-		? container.__php_property_order__.filter(
-				(entry): entry is string => typeof entry === 'string',
-			)
+		? container.__php_property_order__.filter((entry): entry is string => typeof entry === "string")
 		: [];
 
 	let changed = false;

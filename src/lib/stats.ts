@@ -1,4 +1,4 @@
-import type { PhpValue } from './parser/types';
+import type { PhpValue } from "./parser/types";
 
 export interface Stats {
 	byteSize: number;
@@ -14,7 +14,7 @@ export function computeStats(value: PhpValue, originalInput: string): Stats {
 		nodeCount: 0,
 		maxDepth: 0,
 		types: {},
-		classes: []
+		classes: [],
 	};
 
 	const classSet = new Set<string>();
@@ -24,27 +24,27 @@ export function computeStats(value: PhpValue, originalInput: string): Stats {
 		stats.maxDepth = Math.max(stats.maxDepth, depth);
 		stats.types[v.type] = (stats.types[v.type] || 0) + 1;
 
-			switch (v.type) {
-				case 'array':
-					for (const entry of v.entries) {
-						visit(entry.key, depth + 1);
-						visit(entry.value, depth + 1);
-					}
-					break;
+		switch (v.type) {
+			case "array":
+				for (const entry of v.entries) {
+					visit(entry.key, depth + 1);
+					visit(entry.value, depth + 1);
+				}
+				break;
 
-				case 'object':
-					classSet.add(v.className);
-					for (const prop of v.properties) {
-						visit(prop.value, depth + 1);
-					}
-					break;
+			case "object":
+				classSet.add(v.className);
+				for (const prop of v.properties) {
+					visit(prop.value, depth + 1);
+				}
+				break;
 
-				case 'custom_object':
-				case 'enum':
-					classSet.add(v.className);
-					break;
-			}
+			case "custom_object":
+			case "enum":
+				classSet.add(v.className);
+				break;
 		}
+	}
 
 	visit(value, 1);
 	stats.classes = Array.from(classSet).sort();

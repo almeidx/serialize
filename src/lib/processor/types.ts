@@ -1,1 +1,1 @@
-export type InputMode = 'php' | 'json';
+export type InputMode = "php" | "json";

@@ -1,7 +1,7 @@
-import { fromJson, toJson, type JsonValue } from '$lib/converter';
-import { parse, serialize as phpSerialize } from '$lib/parser';
-import { computeStats, type Stats } from '$lib/stats';
-import type { InputMode } from './types';
+import { fromJson, toJson, type JsonValue } from "$lib/converter";
+import { parse, serialize as phpSerialize } from "$lib/parser";
+import { computeStats, type Stats } from "$lib/stats";
+import type { InputMode } from "./types";
 
 export interface ProcessInputResult {
 	parsedData: JsonValue | undefined;
@@ -15,19 +15,16 @@ export interface ProcessParsedResult {
 	stats: Stats;
 }
 
-export function processInputValue(
-	inputMode: InputMode,
-	inputValue: string,
-): ProcessInputResult {
+export function processInputValue(inputMode: InputMode, inputValue: string): ProcessInputResult {
 	if (!inputValue.trim()) {
 		return {
 			parsedData: undefined,
-			phpSerializedValue: '',
+			phpSerializedValue: "",
 			stats: null,
 		};
 	}
 
-	if (inputMode === 'php') {
+	if (inputMode === "php") {
 		const trimmed = inputValue.trim();
 		const phpValue = parse(trimmed);
 		return {
@@ -47,18 +44,12 @@ export function processInputValue(
 	};
 }
 
-export function processParsedData(
-	parsedData: JsonValue,
-	inputMode: InputMode,
-): ProcessParsedResult {
+export function processParsedData(parsedData: JsonValue, inputMode: InputMode): ProcessParsedResult {
 	const phpValue = fromJson(parsedData);
 	const serialized = phpSerialize(phpValue);
 
 	return {
-		inputValue:
-			inputMode === 'php'
-				? serialized
-				: JSON.stringify(parsedData, null, 2),
+		inputValue: inputMode === "php" ? serialized : JSON.stringify(parsedData, null, 2),
 		phpSerializedValue: serialized,
 		stats: computeStats(phpValue, serialized),
 	};

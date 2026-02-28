@@ -1,4 +1,4 @@
-import type { PhpValue } from '../parser/types';
+import type { PhpValue } from "../parser/types";
 
 export function validateReferenceGraph(root: PhpValue): void {
 	const values: PhpValue[] = [];
@@ -9,11 +9,9 @@ export function validateReferenceGraph(root: PhpValue): void {
 		const index = currentIndex;
 		values[index] = value;
 
-		if (value.type === 'reference') {
+		if (value.type === "reference") {
 			if (value.index < 1 || value.index >= index) {
-				throw new Error(
-					`Reference index ${value.index} points to an unresolved value at node ${index}`
-				);
+				throw new Error(`Reference index ${value.index} points to an unresolved value at node ${index}`);
 			}
 
 			const target = resolveReferenceTarget(value.index, values);
@@ -26,12 +24,12 @@ export function validateReferenceGraph(root: PhpValue): void {
 		}
 
 		switch (value.type) {
-			case 'array':
+			case "array":
 				for (const entry of value.entries) {
 					visit(entry.value);
 				}
 				break;
-			case 'object':
+			case "object":
 				for (const property of value.properties) {
 					visit(property.value);
 				}
@@ -48,7 +46,7 @@ function resolveReferenceTarget(index: number, values: PhpValue[]): PhpValue | n
 
 	const seen = new Set<number>();
 	let currentIndex = index;
-	while (current.type === 'reference') {
+	while (current.type === "reference") {
 		if (seen.has(currentIndex)) return null;
 		seen.add(currentIndex);
 
@@ -61,5 +59,5 @@ function resolveReferenceTarget(index: number, values: PhpValue[]): PhpValue | n
 }
 
 function isObjectLikeReferenceTarget(value: PhpValue): boolean {
-	return value.type === 'object' || value.type === 'custom_object' || value.type === 'enum';
+	return value.type === "object" || value.type === "custom_object" || value.type === "enum";
 }

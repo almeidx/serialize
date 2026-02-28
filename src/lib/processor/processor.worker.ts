@@ -1,11 +1,5 @@
-import {
-	processInputValue,
-	processParsedData,
-} from '$lib/processor';
-import type {
-	ProcessorWorkerRequest,
-	ProcessorWorkerResponse,
-} from '$lib/processor/worker-protocol';
+import { processInputValue, processParsedData } from "$lib/processor";
+import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from "$lib/processor/worker-protocol";
 
 const worker = self as unknown as Worker;
 
@@ -13,12 +7,12 @@ worker.onmessage = (event: MessageEvent<ProcessorWorkerRequest>) => {
 	const request = event.data;
 
 	try {
-		if (request.type === 'process-input') {
+		if (request.type === "process-input") {
 			const result = processInputValue(request.inputMode, request.inputValue);
 			const response: ProcessorWorkerResponse = {
 				id: request.id,
 				ok: true,
-				type: 'process-input',
+				type: "process-input",
 				result,
 			};
 			worker.postMessage(response);
@@ -29,7 +23,7 @@ worker.onmessage = (event: MessageEvent<ProcessorWorkerRequest>) => {
 		const response: ProcessorWorkerResponse = {
 			id: request.id,
 			ok: true,
-			type: 'process-parsed',
+			type: "process-parsed",
 			result,
 		};
 		worker.postMessage(response);
