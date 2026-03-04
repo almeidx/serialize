@@ -17,12 +17,12 @@
 		"test:e2e": "playwright test"
 	},
 	"dependencies": {
-		"@zag-js/collapsible": "^1.35.2",
-		"@zag-js/menu": "^1.35.2",
-		"@zag-js/slider": "^1.35.2",
-		"@zag-js/svelte": "^1.35.2",
-		"@zag-js/toggle-group": "^1.35.2",
-		"@zag-js/tree-view": "^1.35.2",
+		"@zag-js/collapsible": "^1.35.3",
+		"@zag-js/menu": "^1.35.3",
+		"@zag-js/slider": "^1.35.3",
+		"@zag-js/svelte": "^1.35.3",
+		"@zag-js/toggle-group": "^1.35.3",
+		"@zag-js/tree-view": "^1.35.3",
 		"monaco-editor": "^0.55.1"
 	},
 	"devDependencies": {
