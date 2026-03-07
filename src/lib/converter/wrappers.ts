@@ -215,7 +215,7 @@ export function fromArrayWrapper(obj: JsonObject, fromJsonValue: (json: JsonValu
 	if (dataKeys) {
 		const entries: PhpArrayEntry[] = originalKeys.map((keyInfo, index) => {
 			const dataKey = dataKeys[index];
-			if (!(dataKey in data)) {
+			if (!Object.prototype.hasOwnProperty.call(data, dataKey)) {
 				throw new Error(`Array wrapper data key '${dataKey}' is missing from data`);
 			}
 
@@ -240,7 +240,7 @@ export function fromArrayWrapper(obj: JsonObject, fromJsonValue: (json: JsonValu
 		}
 		seen.add(dedupeKey);
 
-		if (!(keyStr in data)) {
+		if (!Object.prototype.hasOwnProperty.call(data, keyStr)) {
 			throw new Error(`Array wrapper key '${keyStr}' is missing from data`);
 		}
 
@@ -268,19 +268,19 @@ export function fromObjectWrapper(obj: JsonObject, fromJsonValue: (json: JsonVal
 	const propertyClasses = parseStringMap(obj.__php_property_class__, "__php_property_class__");
 
 	for (const key of Object.keys(propertyMeta)) {
-		if (!(key in data)) {
+		if (!Object.prototype.hasOwnProperty.call(data, key)) {
 			throw new Error(`Property metadata references missing property key '${key}'`);
 		}
 	}
 
 	for (const key of Object.keys(visibilities)) {
-		if (!(key in data)) {
+		if (!Object.prototype.hasOwnProperty.call(data, key)) {
 			throw new Error(`Visibility metadata references missing property '${key}'`);
 		}
 	}
 
 	for (const key of Object.keys(propertyClasses)) {
-		if (!(key in data)) {
+		if (!Object.prototype.hasOwnProperty.call(data, key)) {
 			throw new Error(`Property class metadata references missing property '${key}'`);
 		}
 	}

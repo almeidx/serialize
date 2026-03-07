@@ -61,7 +61,7 @@ export function parseVisibilityMap(value: JsonValue | undefined): Record<string,
 	if (value === undefined) return {};
 
 	const obj = requireObject(value, "__php_visibility__");
-	const visibilityMap: Record<string, PhpVisibility> = {};
+	const visibilityMap: Record<string, PhpVisibility> = Object.create(null);
 
 	for (const [key, visibility] of Object.entries(obj)) {
 		if (visibility !== "public" && visibility !== "protected" && visibility !== "private") {
@@ -77,7 +77,7 @@ export function parseStringMap(value: JsonValue | undefined, fieldName: string):
 	if (value === undefined) return {};
 
 	const obj = requireObject(value, fieldName);
-	const result: Record<string, string> = {};
+	const result: Record<string, string> = Object.create(null);
 
 	for (const [key, mapValue] of Object.entries(obj)) {
 		if (typeof mapValue !== "string") {
@@ -93,7 +93,7 @@ export function parsePropertyMetaMap(value: JsonValue | undefined): Record<strin
 	if (value === undefined) return {};
 
 	const obj = requireObject(value, "__php_property_meta__");
-	const result: Record<string, PhpPropertyMetaEntry> = {};
+	const result: Record<string, PhpPropertyMetaEntry> = Object.create(null);
 
 	for (const [key, metaValue] of Object.entries(obj)) {
 		if (!metaValue || Array.isArray(metaValue) || typeof metaValue !== "object") {
@@ -140,7 +140,7 @@ export function parsePropertyOrder(value: JsonValue | undefined, data: JsonObjec
 	});
 
 	for (const key of order) {
-		if (!(key in data)) {
+		if (!Object.prototype.hasOwnProperty.call(data, key)) {
 			throw new Error(`__php_property_order__ references missing property key '${key}'`);
 		}
 	}
