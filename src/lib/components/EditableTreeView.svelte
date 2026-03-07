@@ -389,7 +389,10 @@
 	const expandable = $derived(isExpandable(data));
 	const canAddChildren = $derived(type === 'array' || type === 'object');
 
-	const localRootNode = $derived(buildTreeNode(data, path, keyName));	
+	const localRootNode = $derived.by(() => {
+		if (treeNode) return treeNode;
+		return buildTreeNode(data, path, keyName);
+	});
 	const activeTreeNode = $derived(treeNode ?? localRootNode);
 	const childNodes = $derived(activeTreeNode.children ?? []);
 	const rootInstance = $derived(depth === 0 && !treeNode && keyName === null);
