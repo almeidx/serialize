@@ -58,6 +58,7 @@
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let suppressNextChange = false;
+	let isLocalEdit = false;
 
 	onMount(async () => {
 		const runtime = await loadMonacoRuntime();
@@ -100,6 +101,7 @@
 			if (onchange) {
 				if (debounceTimer) clearTimeout(debounceTimer);
 				debounceTimer = setTimeout(() => {
+					isLocalEdit = true;
 					onchange(ed.getValue());
 				}, 300);
 			}
@@ -108,6 +110,7 @@
 		ed.onDidBlurEditorWidget(() => {
 			if (onchange) {
 				if (debounceTimer) clearTimeout(debounceTimer);
+				isLocalEdit = true;
 				onchange(ed.getValue());
 			}
 		});
@@ -122,9 +125,14 @@
 		const newValue = value;
 		const ed = editor;
 		if (ed && monaco && newValue !== ed.getValue()) {
+			if (isLocalEdit) {
+				isLocalEdit = false;
+				return;
+			}
 			suppressNextChange = true;
 			ed.setValue(newValue);
 		}
+		isLocalEdit = false;
 	});
 
 	$effect(() => {
