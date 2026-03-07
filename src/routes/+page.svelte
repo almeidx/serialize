@@ -39,6 +39,7 @@
 	let stats = $state<Stats | null>(null);
 	let phpSerializedValue = $state('');
 	let statsCollapsed = $state(false);
+	let updateInputTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const defaultTreeData: JsonValue = {};
 	const treeData = $derived(
@@ -225,6 +226,7 @@
 	});
 
 	onDestroy(() => {
+		if (updateInputTimer) clearTimeout(updateInputTimer);
 		processorWorker?.terminate();
 		processorWorker = null;
 		for (const pending of pendingWorkerRequests.values()) {
@@ -391,7 +393,10 @@
 				break;
 		}
 		parsedData = updated;
-		void updateInputFromParsed();
+		if (updateInputTimer) clearTimeout(updateInputTimer);
+		updateInputTimer = setTimeout(() => {
+			void updateInputFromParsed();
+		}, 300);
 	}
 
 	async function updateInputFromParsed() {
