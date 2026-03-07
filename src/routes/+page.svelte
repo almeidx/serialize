@@ -48,7 +48,7 @@
 	let theme = $state<'light' | 'dark'>(getInitialTheme());
 	let splitPosition = $state(50);
 
-	let processorWorker = $state<Worker | null>(null);
+	let processorWorker: Worker | null = null;
 	let workerRequestSeq = 0;
 	let operationSeq = 0;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -212,6 +212,12 @@
 				pendingWorkerRequests.clear();
 				processorWorker = null;
 			};
+			worker.onmessageerror = () => {
+				for (const pending of pendingWorkerRequests.values()) {
+					pending.reject(new Error('Worker message could not be deserialized'));
+				}
+				pendingWorkerRequests.clear();
+			};
 			processorWorker = worker;
 		} catch {
 			processorWorker = null;
@@ -246,7 +252,7 @@
 		return await new Promise<ProcessorWorkerResponse>((resolve, reject) => {
 			pendingWorkerRequests.set(request.id, { resolve, reject });
 			try {
-				processorWorker?.postMessage(request);
+				processorWorker!.postMessage(request);
 			} catch (error) {
 				pendingWorkerRequests.delete(request.id);
 				reject(
