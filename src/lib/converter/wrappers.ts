@@ -37,10 +37,10 @@ function encodeBase64Utf8(value: string): string {
 }
 
 function decodeBase64Utf8(base64: string, invalidMessage: string): string {
+	if (typeof atob !== "function") {
+		throw new Error("No base64 decoder available in this environment");
+	}
 	try {
-		if (typeof atob !== "function") {
-			throw new Error("No base64 decoder available in this environment");
-		}
 		const bytes = binaryToBytes(atob(base64));
 		return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 	} catch {
