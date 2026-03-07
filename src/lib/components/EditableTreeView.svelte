@@ -23,6 +23,9 @@
 		children?: TreeUiNode[];
 	};
 
+	type TreeApi = ReturnType<typeof tree.connect>;
+	type TreeCollectionType = ReturnType<typeof tree.collection<TreeUiNode>>;
+
 	interface Props {
 		data: JsonValue;
 		path?: TreePath;
@@ -30,8 +33,8 @@
 		depth?: number;
 		onchange?: (op: TreeOperation) => void;
 		ondelete?: () => void;
-		treeApi?: any;
-		treeCollection?: any;
+		treeApi?: TreeApi;
+		treeCollection?: TreeCollectionType;
 		treeNode?: TreeUiNode;
 	}
 
