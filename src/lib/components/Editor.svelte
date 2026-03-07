@@ -41,7 +41,10 @@
 			EditorWorker: editorWorkerModule.default as WorkerFactory,
 			JsonWorker: jsonWorkerModule.default as WorkerFactory,
 			}),
-		);
+		).catch((error) => {
+			monacoRuntimePromise = null;
+			throw error;
+		});
 
 		return monacoRuntimePromise;
 	}
@@ -55,13 +58,20 @@
 	let container: HTMLDivElement;
 	let editor = $state<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	let monaco = $state<typeof Monaco | null>(null);
+	let loadError = $state(false);
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let suppressNextChange = false;
 	let isLocalEdit = false;
 
 	onMount(async () => {
-		const runtime = await loadMonacoRuntime();
+		let runtime: MonacoRuntime;
+		try {
+			runtime = await loadMonacoRuntime();
+		} catch {
+			loadError = true;
+			return;
+		}
 		const m = runtime.monaco;
 
 		const monacoHost = globalThis as MonacoEnvironmentHost;
@@ -152,4 +162,10 @@
 	});
 </script>
 
-<div bind:this={container} class="w-full h-full min-h-50"></div>
+{#if loadError}
+	<div class="w-full h-full min-h-50 flex items-center justify-center text-zinc-500 dark:text-zinc-400 text-sm">
+		Failed to load editor
+	</div>
+{:else}
+	<div bind:this={container} class="w-full h-full min-h-50"></div>
+{/if}
