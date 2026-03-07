@@ -338,7 +338,7 @@
 			parseError = null;
 		} catch (e) {
 			if (!isActiveOperation(token)) return;
-			parseError = e as Error;
+			parseError = e instanceof Error ? e : new Error(String(e));
 			parsedData = undefined;
 			stats = null;
 			phpSerializedValue = '';
@@ -402,7 +402,7 @@
 			parseError = null;
 		} catch (e) {
 			if (!isActiveOperation(token)) return;
-			parseError = e as Error;
+			parseError = e instanceof Error ? e : new Error(String(e));
 		}
 	}
 
