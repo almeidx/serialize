@@ -1,10 +1,16 @@
 import type { PhpValue } from "../parser/types";
 
+const MAX_DEPTH = 512;
+
 export function validateReferenceGraph(root: PhpValue): void {
 	const values: PhpValue[] = [];
 	let currentIndex = 0;
 
-	function visit(value: PhpValue): void {
+	function visit(value: PhpValue, depth: number): void {
+		if (depth > MAX_DEPTH) {
+			throw new Error(`Maximum nesting depth of ${MAX_DEPTH} exceeded during reference validation`);
+		}
+
 		currentIndex++;
 		const index = currentIndex;
 		values[index] = value;
@@ -26,18 +32,18 @@ export function validateReferenceGraph(root: PhpValue): void {
 		switch (value.type) {
 			case "array":
 				for (const entry of value.entries) {
-					visit(entry.value);
+					visit(entry.value, depth + 1);
 				}
 				break;
 			case "object":
 				for (const property of value.properties) {
-					visit(property.value);
+					visit(property.value, depth + 1);
 				}
 				break;
 		}
 	}
 
-	visit(root);
+	visit(root, 0);
 }
 
 function resolveReferenceTarget(index: number, values: PhpValue[]): PhpValue | null {

@@ -1,4 +1,5 @@
 import type { PhpValue } from "./parser/types";
+import { utf8ByteLength } from "./parser/utf8";
 
 export interface Stats {
 	byteSize: number;
@@ -8,9 +9,11 @@ export interface Stats {
 	classes: string[];
 }
 
+const MAX_STATS_DEPTH = 512;
+
 export function computeStats(value: PhpValue, originalInput: string): Stats {
 	const stats: Stats = {
-		byteSize: new TextEncoder().encode(originalInput).length,
+		byteSize: utf8ByteLength(originalInput),
 		nodeCount: 0,
 		maxDepth: 0,
 		types: {},
@@ -20,6 +23,7 @@ export function computeStats(value: PhpValue, originalInput: string): Stats {
 	const classSet = new Set<string>();
 
 	function visit(v: PhpValue, depth: number): void {
+		if (depth > MAX_STATS_DEPTH) return;
 		stats.nodeCount++;
 		stats.maxDepth = Math.max(stats.maxDepth, depth);
 		stats.types[v.type] = (stats.types[v.type] || 0) + 1;

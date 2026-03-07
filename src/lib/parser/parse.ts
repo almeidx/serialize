@@ -1,8 +1,10 @@
 import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
 
+const MAX_DEPTH = 512;
+
 export function parse(input: string): PhpValue {
 	const parser = new Parser(input);
-	const result = parser.parseValue();
+	const result = parser.parseValue(0);
 
 	if (parser.position < input.length) {
 		throw new ParseError("Unexpected data after end of serialized value", parser.position, parser.getContext());
@@ -18,7 +20,11 @@ class Parser {
 
 	constructor(private input: string) {}
 
-	parseValue(): PhpValue {
+	parseValue(depth: number): PhpValue {
+		if (depth > MAX_DEPTH) {
+			throw new ParseError(`Maximum nesting depth of ${MAX_DEPTH} exceeded`, this.position, this.getContext());
+		}
+
 		this.refIndex++;
 		const currentIndex = this.refIndex;
 
@@ -42,10 +48,10 @@ class Parser {
 				parsedValue = this.parseString();
 				break;
 			case "a":
-				parsedValue = this.parseArray();
+				parsedValue = this.parseArray(depth);
 				break;
 			case "O":
-				parsedValue = this.parseObject();
+				parsedValue = this.parseObject(depth);
 				break;
 			case "C":
 				parsedValue = this.parseCustomObject();
@@ -135,7 +141,7 @@ class Parser {
 		return { type: "string", value, binary: hasBinary ? true : undefined };
 	}
 
-	private parseArray(): PhpValue {
+	private parseArray(depth: number): PhpValue {
 		this.expect("a");
 		this.expect(":");
 		const count = this.readNonNegativeInteger("array element count");
@@ -156,7 +162,7 @@ class Parser {
 				throw new ParseError(`Array key must be integer or string, got '${keyType}'`, this.position, this.getContext());
 			}
 
-			const value = this.parseValue();
+			const value = this.parseValue(depth + 1);
 			entries.push({ key: key as PhpArrayEntry["key"], value });
 		}
 
@@ -164,7 +170,7 @@ class Parser {
 		return { type: "array", entries };
 	}
 
-	private parseObject(): PhpValue {
+	private parseObject(depth: number): PhpValue {
 		this.expect("O");
 		this.expect(":");
 		const classNameLength = this.readNumber();
@@ -191,7 +197,7 @@ class Parser {
 
 			const { name, visibility, className: propClassName } = this.parsePropertyName(rawName, className);
 
-			const value = this.parseValue();
+			const value = this.parseValue(depth + 1);
 			properties.push({ name, visibility, className: propClassName, value });
 		}
 
