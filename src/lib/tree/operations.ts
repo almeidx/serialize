@@ -434,13 +434,11 @@ function withoutPhpArrayKeyMetadata(container: PhpWrappedContainer, rawDataKey: 
 	const entries = getPhpArrayMetadataEntries(container);
 	if (entries.length === 0) return null;
 
-	let changed = false;
 	let nextEntries: PhpArrayMetadataEntry[];
 
 	const byDataKeyIndex = entries.findIndex((entry) => entry.dataKey === rawDataKey);
 	if (byDataKeyIndex !== -1) {
 		nextEntries = entries.filter((_, index) => index !== byDataKeyIndex);
-		changed = true;
 	} else {
 		const legacyMatchIndices = entries
 			.map((entry, index) => ({ entry, index }))
@@ -449,10 +447,7 @@ function withoutPhpArrayKeyMetadata(container: PhpWrappedContainer, rawDataKey: 
 
 		if (legacyMatchIndices.length === 0) return null;
 		nextEntries = entries.filter((_, index) => !legacyMatchIndices.includes(index));
-		changed = true;
 	}
-
-	if (!changed) return null;
 
 	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
 	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
