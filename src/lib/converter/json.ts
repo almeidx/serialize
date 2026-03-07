@@ -17,7 +17,7 @@ import {
 	toReferenceWrapper,
 } from "./wrappers";
 
-export type { JsonValue, JsonWithMeta } from "./types";
+export type { JsonValue } from "./types";
 
 export function toJson(php: PhpValue): JsonValue {
 	switch (php.type) {
