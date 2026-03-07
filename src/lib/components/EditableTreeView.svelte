@@ -290,6 +290,7 @@
 	}
 
 	function commitEdit() {
+		if (!editing) return;
 		editing = false;
 		if (!onchange) return;
 
