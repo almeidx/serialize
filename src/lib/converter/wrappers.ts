@@ -60,6 +60,14 @@ function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string 
 	return candidate;
 }
 
+export function fromFloatWrapper(obj: JsonObject): PhpValue {
+	const val = obj.value;
+	if (val === "NAN") return { type: "float", value: NaN };
+	if (val === "INF") return { type: "float", value: Infinity };
+	if (val === "-INF") return { type: "float", value: -Infinity };
+	throw new Error(`Float wrapper has invalid value '${String(val)}', expected 'NAN', 'INF', or '-INF'`);
+}
+
 export function toBinaryWrapper(value: string): JsonObject {
 	return {
 		__php_type__: "string",

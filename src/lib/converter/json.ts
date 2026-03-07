@@ -6,6 +6,7 @@ import {
 	fromBinaryWrapper,
 	fromCustomObjectWrapper,
 	fromEnumWrapper,
+	fromFloatWrapper,
 	fromObjectWrapper,
 	fromReferenceWrapper,
 	toArrayWrapper,
@@ -27,7 +28,15 @@ export function toJson(php: PhpValue): JsonValue {
 			return php.value;
 
 		case "int":
+			return php.value;
+
 		case "float":
+			if (!Number.isFinite(php.value)) {
+				return {
+					__php_type__: "float",
+					value: Number.isNaN(php.value) ? "NAN" : php.value > 0 ? "INF" : "-INF",
+				};
+			}
 			return php.value;
 
 		case "string":
@@ -96,6 +105,8 @@ function fromJsonInternal(json: JsonValue): PhpValue {
 			}
 
 			switch (typeTag) {
+				case "float":
+					return fromFloatWrapper(obj);
 				case "string":
 					return fromBinaryWrapper(obj);
 				case "reference":

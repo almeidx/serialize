@@ -185,11 +185,18 @@
 		return expanded;
 	}
 
+	function isSpecialFloat(value: JsonValue): boolean {
+		if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+		const obj = value as Record<string, JsonValue>;
+		return obj.__php_type__ === 'float';
+	}
+
 	function getType(value: JsonValue): string {
 		if (value === null) return 'null';
 		if (Array.isArray(value)) return 'array';
 		if (typeof value === 'object') {
 			const obj = value as Record<string, JsonValue>;
+			if (obj.__php_type__ === 'float') return 'number';
 			if (obj.__php_type__ === 'object') return 'object';
 			if (obj.__php_type__ === 'array') return 'array';
 			if (obj.__php_type__ === 'string') return 'binary';
@@ -204,7 +211,12 @@
 	function getDisplayValue(value: JsonValue, type: string): string {
 		if (type === 'null') return 'null';
 		if (type === 'boolean') return String(value);
-		if (type === 'number') return String(value);
+		if (type === 'number') {
+			if (isSpecialFloat(value)) {
+				return String((value as Record<string, JsonValue>).value);
+			}
+			return String(value);
+		}
 		if (type === 'string') return value as string;
 		if (type === 'binary') {
 			const obj = value as Record<string, JsonValue>;
@@ -249,6 +261,7 @@
 		if (typeof value === 'object' && value !== null) {
 			const obj = value as Record<string, JsonValue>;
 			if (
+				obj.__php_type__ === 'float' ||
 				obj.__php_type__ === 'string' ||
 				obj.__php_type__ === 'reference' ||
 				obj.__php_type__ === 'custom_object' ||
@@ -267,7 +280,13 @@
 	function startEdit() {
 		if (!isScalar(type)) return;
 		editing = true;
-		editValue = type === 'string' ? (data as string) : JSON.stringify(data);
+		if (type === 'string') {
+			editValue = data as string;
+		} else if (isSpecialFloat(data)) {
+			editValue = String((data as Record<string, JsonValue>).value);
+		} else {
+			editValue = JSON.stringify(data);
+		}
 	}
 
 	function commitEdit() {
