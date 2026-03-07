@@ -140,7 +140,16 @@
 				return;
 			}
 			suppressNextChange = true;
-			ed.setValue(newValue);
+			const model = ed.getModel();
+			if (model) {
+				const fullRange = model.getFullModelRange();
+				ed.executeEdits('external', [{
+					range: fullRange,
+					text: newValue,
+				}]);
+			} else {
+				ed.setValue(newValue);
+			}
 		}
 		isLocalEdit = false;
 	});
