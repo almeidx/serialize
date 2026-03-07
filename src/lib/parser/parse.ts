@@ -1,3 +1,4 @@
+import { hasBinaryControlCharacters } from "../converter/validation";
 import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
 
 const MAX_DEPTH = 512;
@@ -465,16 +466,6 @@ class Parser {
 		const after = this.input.slice(atPosition, end);
 		return `${before}[HERE]${after}`;
 	}
-}
-
-function hasBinaryControlCharacters(value: string): boolean {
-	for (let i = 0; i < value.length; i++) {
-		const code = value.charCodeAt(i);
-		if ((code >= 0 && code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
-			return true;
-		}
-	}
-	return false;
 }
 
 function isValidFloatLiteral(value: string): boolean {
