@@ -132,8 +132,9 @@
 		deselectable: false,
 		multiple: false,
 		onValueChange: (details) => {
-			const next = details.value[0] as InputMode | undefined;
-			if (!next || next === inputMode) return;
+			const next = details.value[0];
+			if (next !== 'php' && next !== 'json') return;
+			if (next === inputMode) return;
 			inputMode = next;
 			void processInput();
 		},
@@ -146,8 +147,9 @@
 		deselectable: false,
 		multiple: false,
 		onValueChange: (details) => {
-			const next = details.value[0] as OutputView | undefined;
-			if (!next || next === outputView) return;
+			const next = details.value[0];
+			if (next !== 'tree' && next !== 'json') return;
+			if (next === outputView) return;
 			outputView = next;
 		},
 	}));
