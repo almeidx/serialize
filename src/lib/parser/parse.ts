@@ -356,7 +356,7 @@ class Parser {
 		const start = this.position;
 		let hasDigits = false;
 
-		if (this.peek() === "-" || this.peek() === "+") {
+		if (this.peek() === "-") {
 			this.position++;
 		}
 
