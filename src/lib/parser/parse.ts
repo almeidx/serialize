@@ -1,6 +1,7 @@
 import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
 
 const MAX_DEPTH = 512;
+const MAX_ELEMENT_COUNT = 1_000_000;
 
 export function parse(input: string): PhpValue {
 	const parser = new Parser(input);
@@ -376,6 +377,13 @@ class Parser {
 		if (!Number.isSafeInteger(value) || value < 0) {
 			throw new ParseError(
 				`Expected non-negative integer for ${context}, got '${value}'`,
+				this.position,
+				this.getContext(),
+			);
+		}
+		if (value > MAX_ELEMENT_COUNT) {
+			throw new ParseError(
+				`${context} of ${value} exceeds maximum of ${MAX_ELEMENT_COUNT}`,
 				this.position,
 				this.getContext(),
 			);
