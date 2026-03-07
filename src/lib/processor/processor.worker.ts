@@ -1,7 +1,10 @@
 import { processInputValue, processParsedData } from "$lib/processor";
 import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from "$lib/processor/worker-protocol";
 
-const worker = globalThis as unknown as { onmessage: ((event: MessageEvent) => void) | null; postMessage: (message: unknown) => void };
+const worker = globalThis as unknown as {
+	onmessage: ((event: MessageEvent) => void) | null;
+	postMessage: (message: unknown) => void;
+};
 
 worker.onmessage = (event: MessageEvent<ProcessorWorkerRequest>) => {
 	const request = event.data;
