@@ -2,6 +2,7 @@ import type { PhpArrayEntry, PhpObjectProperty, PhpValue } from "../parser/types
 import type { JsonObject, JsonValue } from "./types";
 import {
 	hasBinaryControlCharacters,
+	makeUniqueArrayDataKey,
 	makeUniqueKey,
 	parseArrayDataKeys,
 	parseArrayKeyMetadataEntry,
@@ -46,18 +47,6 @@ function decodeBase64Utf8(base64: string, invalidMessage: string): string {
 	} catch {
 		throw new Error(invalidMessage);
 	}
-}
-
-function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
-	if (!usedKeys.has(baseKey)) return baseKey;
-
-	let counter = 2;
-	let candidate = `${baseKey}#${counter}`;
-	while (usedKeys.has(candidate)) {
-		counter += 1;
-		candidate = `${baseKey}#${counter}`;
-	}
-	return candidate;
 }
 
 export function fromFloatWrapper(obj: JsonObject): PhpValue {

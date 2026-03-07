@@ -154,6 +154,19 @@ export function parsePropertyOrder(value: JsonValue | undefined, data: JsonObjec
 	return order;
 }
 
+export function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
+	if (!usedKeys.has(baseKey)) return baseKey;
+
+	let counter = 2;
+	let candidate = `${baseKey}#${counter}`;
+	while (usedKeys.has(candidate)) {
+		counter++;
+		candidate = `${baseKey}#${counter}`;
+	}
+
+	return candidate;
+}
+
 export function makeUniqueKey(baseKey: string, usedKeys: Set<string>): string {
 	if (!usedKeys.has(baseKey)) return baseKey;
 

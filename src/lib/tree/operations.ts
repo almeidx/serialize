@@ -1,4 +1,5 @@
 import type { JsonValue } from "../converter/json";
+import { makeUniqueArrayDataKey as makeUniqueArrayDataKeyShared } from "../converter/validation";
 
 export type TreePath = Array<string | number>;
 
@@ -83,18 +84,7 @@ function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMet
 	}));
 }
 
-function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
-	if (!usedKeys.has(baseKey)) return baseKey;
-
-	let counter = 2;
-	let candidate = `${baseKey}#${counter}`;
-	while (usedKeys.has(candidate)) {
-		counter++;
-		candidate = `${baseKey}#${counter}`;
-	}
-
-	return candidate;
-}
+const makeUniqueArrayDataKey = makeUniqueArrayDataKeyShared;
 
 export function setValueAtPath(obj: JsonValue, path: TreePath, value: JsonValue): JsonValue {
 	if (path.length === 0) return value;
