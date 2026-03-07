@@ -1,4 +1,5 @@
 import type { JsonValue } from "../converter/json";
+import type { PhpArrayKey } from "../converter/types";
 import { makeUniqueArrayDataKey as makeUniqueArrayDataKeyShared } from "../converter/validation";
 
 export type TreePath = Array<string | number>;
@@ -12,7 +13,6 @@ type PhpWrappedContainer = JsonObject & {
 	__php_property_meta__?: JsonValue;
 	__php_property_order__?: JsonValue;
 };
-type PhpArrayKey = { type: "int" | "string"; value: number | string };
 type PhpObjectPropertyMeta = {
 	name: string;
 	visibility: "public" | "protected" | "private";
@@ -62,14 +62,16 @@ function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMet
 	if (container.__php_type__ !== "array") return [];
 	if (!Array.isArray(container.__php_original_keys__)) return [];
 
-	const originalKeys = container.__php_original_keys__.filter(
-		(entry): entry is PhpArrayKey =>
-			!!entry &&
-			typeof entry === "object" &&
-			!Array.isArray(entry) &&
-			(entry as PhpArrayKey).type !== undefined &&
-			((entry as PhpArrayKey).type === "int" || (entry as PhpArrayKey).type === "string"),
-	);
+	const originalKeys: PhpArrayKey[] = [];
+	for (const entry of container.__php_original_keys__) {
+		if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+		const obj = entry as Record<string, JsonValue>;
+		if (obj.type === "int" && typeof obj.value === "number") {
+			originalKeys.push({ type: "int", value: obj.value });
+		} else if (obj.type === "string" && typeof obj.value === "string") {
+			originalKeys.push({ type: "string", value: obj.value });
+		}
+	}
 
 	const explicitDataKeys =
 		Array.isArray(container.__php_data_keys__) &&

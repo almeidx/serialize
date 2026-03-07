@@ -3,12 +3,11 @@
 	import * as tree from '@zag-js/tree-view';
 	import { mergeProps, normalizeProps, useMachine } from '@zag-js/svelte';
 	import type { JsonValue } from '../converter/json';
+	import type { PhpArrayKey } from '../converter/types';
 	import type { TreePath } from '../tree/operations';
 	import type { TreeOperation } from './tree-types';
 	import TypeMenu from './TypeMenu.svelte';
 	import EditableTreeNode from './EditableTreeView.svelte';
-
-	type PhpArrayKey = { type: 'int' | 'string'; value: number | string };
 	type ChildEntry = {
 		pathKey: string | number;
 		displayKey: string | number;
@@ -64,19 +63,17 @@
 
 	function parsePhpArrayKeys(value: JsonValue | undefined): PhpArrayKey[] {
 		if (!Array.isArray(value)) return [];
-		return value
-			.filter(
-				(entry): entry is PhpArrayKey =>
-					!!entry &&
-					typeof entry === 'object' &&
-					!Array.isArray(entry) &&
-					((entry as PhpArrayKey).type === 'int' ||
-						(entry as PhpArrayKey).type === 'string')
-			)
-			.map((entry) => ({
-				type: entry.type,
-				value: entry.value,
-			}));
+		const results: PhpArrayKey[] = [];
+		for (const entry of value) {
+			if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+			const obj = entry as Record<string, JsonValue>;
+			if (obj.type === 'int' && typeof obj.value === 'number') {
+				results.push({ type: 'int', value: obj.value });
+			} else if (obj.type === 'string' && typeof obj.value === 'string') {
+				results.push({ type: 'string', value: obj.value });
+			}
+		}
+		return results;
 	}
 
 	function getChildrenEntries(value: JsonValue): ChildEntry[] {
