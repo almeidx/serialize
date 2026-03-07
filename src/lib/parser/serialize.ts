@@ -13,8 +13,13 @@ function serializeValue(value: PhpValue): string {
 		case "bool":
 			return `b:${value.value ? "1" : "0"};`;
 
-		case "int":
-			return `i:${Math.floor(value.value)};`;
+		case "int": {
+			const intVal = Math.floor(value.value);
+			if (!Number.isFinite(intVal)) {
+				throw new Error(`Cannot serialize non-finite integer value: ${value.value}`);
+			}
+			return `i:${intVal};`;
+		}
 
 		case "float":
 			if (value.value === Infinity) {
@@ -43,6 +48,11 @@ function serializeValue(value: PhpValue): string {
 
 		case "reference":
 			return `${value.isObject ? "r" : "R"}:${value.index};`;
+
+		default: {
+			const _exhaustive: never = value;
+			throw new Error(`Unknown PHP value type: ${(_exhaustive as { type: string }).type}`);
+		}
 	}
 }
 
