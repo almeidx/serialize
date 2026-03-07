@@ -453,6 +453,45 @@
 	});
 </script>
 
+{#snippet actionButtons()}
+	<span
+		class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1"
+	>
+		<TypeMenu
+			id={activeTreeNode.value}
+			currentType={type}
+			options={typeOptions}
+			onselect={changeType}
+		/>
+
+		{#if canAddChildren}
+			<button
+				type="button"
+				onclick={startAddKey}
+				class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-green-700 dark:hover:text-green-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+				aria-label="Add item"
+			>
+				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+				</svg>
+			</button>
+		{/if}
+
+		{#if ondelete}
+			<button
+				type="button"
+				onclick={ondelete}
+				class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+				aria-label="Delete"
+			>
+				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+		{/if}
+	</span>
+{/snippet}
+
 {#if rootInstance}
 	<div
 		{...mergeProps(activeTreeApi.getRootProps(), {
@@ -579,83 +618,13 @@
 						{/if}
 
 						{#if !expandable}
-							<span
-								class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1"
-							>
-								<TypeMenu
-									id={activeTreeNode.value}
-									currentType={type}
-									options={typeOptions}
-									onselect={changeType}
-								/>
-
-								{#if canAddChildren}
-									<button
-										type="button"
-										onclick={startAddKey}
-										class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-green-700 dark:hover:text-green-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-										aria-label="Add item"
-									>
-										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-										</svg>
-									</button>
-								{/if}
-
-								{#if ondelete}
-									<button
-										type="button"
-										onclick={ondelete}
-										class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-										aria-label="Delete"
-									>
-										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-										</svg>
-									</button>
-								{/if}
-							</span>
+							{@render actionButtons()}
 						{/if}
 					</span>
 				</div>
 
 				{#if expandable}
-					<span
-						class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 ml-1"
-					>
-						<TypeMenu
-							id={activeTreeNode.value}
-							currentType={type}
-							options={typeOptions}
-							onselect={changeType}
-						/>
-
-						{#if canAddChildren}
-							<button
-								type="button"
-								onclick={startAddKey}
-								class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-green-700 dark:hover:text-green-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-								aria-label="Add item"
-							>
-								<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-								</svg>
-							</button>
-						{/if}
-
-						{#if ondelete}
-							<button
-								type="button"
-								onclick={ondelete}
-								class="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
-								aria-label="Delete"
-							>
-								<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-								</svg>
-							</button>
-						{/if}
-					</span>
+					{@render actionButtons()}
 				{/if}
 			</div>
 
