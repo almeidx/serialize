@@ -55,7 +55,7 @@
 		};
 	};
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement | null>(null);
 	let editor = $state<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	let monaco = $state<typeof Monaco | null>(null);
 	let loadError = $state(false);
@@ -85,6 +85,7 @@
 		};
 
 		monaco = m;
+		if (!container) return;
 
 		const ed = m.editor.create(container, {
 			value,
