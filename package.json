@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "vite build",
+		"build:typecheck": "tsc --noEmit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"dev": "vite dev",
@@ -39,7 +40,7 @@
 		"svelte": "^5.55.0",
 		"svelte-check": "^4.4.5",
 		"tailwindcss": "^4.2.2",
-		"typescript": "~5.9.3",
+		"typescript": "~6.0.2",
 		"vite": "^8.0.2",
 		"vitest": "^4.1.1",
 		"wrangler": "^4.76.0"
