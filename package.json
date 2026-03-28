@@ -34,7 +34,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^25.5.0",
-		"@vitest/coverage-v8": "^4.1.1",
+		"@vitest/coverage-v8": "^4.1.2",
 		"oxfmt": "^0.42.0",
 		"oxlint": "^1.57.0",
 		"svelte": "^5.55.0",
@@ -42,7 +42,7 @@
 		"tailwindcss": "^4.2.2",
 		"typescript": "~6.0.2",
 		"vite": "^8.0.3",
-		"vitest": "^4.1.1",
+		"vitest": "^4.1.2",
 		"wrangler": "^4.77.0"
 	},
 	"packageManager": "pnpm@10.33.0",
