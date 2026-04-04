@@ -18,12 +18,12 @@
 		"test:e2e": "playwright test"
 	},
 	"dependencies": {
-		"@zag-js/collapsible": "^1.38.2",
-		"@zag-js/menu": "^1.38.2",
-		"@zag-js/slider": "^1.38.2",
-		"@zag-js/svelte": "^1.38.2",
-		"@zag-js/toggle-group": "^1.38.2",
-		"@zag-js/tree-view": "^1.38.2",
+		"@zag-js/collapsible": "^1.39.0",
+		"@zag-js/menu": "^1.39.0",
+		"@zag-js/slider": "^1.39.0",
+		"@zag-js/svelte": "^1.39.0",
+		"@zag-js/toggle-group": "^1.39.0",
+		"@zag-js/tree-view": "^1.39.0",
 		"monaco-editor": "^0.55.1"
 	},
 	"devDependencies": {
@@ -43,7 +43,7 @@
 		"typescript": "~6.0.2",
 		"vite": "^8.0.3",
 		"vitest": "^4.1.2",
-		"wrangler": "^4.79.0"
+		"wrangler": "^4.80.0"
 	},
 	"packageManager": "pnpm@10.33.0",
 	"pnpm": {
