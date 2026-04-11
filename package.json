@@ -33,7 +33,7 @@
 		"@sveltejs/kit": "^2.57.1",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.2",
-		"@types/node": "^25.5.2",
+		"@types/node": "^25.6.0",
 		"@vitest/coverage-v8": "^4.1.4",
 		"oxfmt": "^0.44.0",
 		"oxlint": "^1.59.0",
