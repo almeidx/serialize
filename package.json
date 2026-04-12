@@ -18,12 +18,12 @@
 		"test:e2e": "playwright test"
 	},
 	"dependencies": {
-		"@zag-js/collapsible": "^1.39.1",
-		"@zag-js/menu": "^1.39.1",
-		"@zag-js/slider": "^1.39.1",
-		"@zag-js/svelte": "^1.39.1",
-		"@zag-js/toggle-group": "^1.39.1",
-		"@zag-js/tree-view": "^1.39.1",
+		"@zag-js/collapsible": "^1.40.0",
+		"@zag-js/menu": "^1.40.0",
+		"@zag-js/slider": "^1.40.0",
+		"@zag-js/svelte": "^1.40.0",
+		"@zag-js/toggle-group": "^1.40.0",
+		"@zag-js/tree-view": "^1.40.0",
 		"monaco-editor": "^0.55.1"
 	},
 	"devDependencies": {
