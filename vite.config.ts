@@ -1,9 +1,34 @@
 import tailwindcss from "@tailwindcss/vite";
+import adapter from "@sveltejs/adapter-cloudflare";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [
+		tailwindcss(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			csp: {
+				mode: "auto",
+				directives: {
+					"default-src": ["self"],
+					"base-uri": ["none"],
+					"object-src": ["none"],
+					"frame-ancestors": ["none"],
+					"form-action": ["self"],
+					"script-src": ["self"],
+					"style-src": ["self", "unsafe-inline"],
+					"img-src": ["self", "data:"],
+					"font-src": ["self", "data:"],
+					"connect-src": ["self"],
+					"worker-src": ["self"],
+					"manifest-src": ["self"],
+				},
+			},
+			adapter: adapter(),
+		}),
+	],
 	test: {
 		include: ["src/**/*.test.ts"],
 		exclude: ["tests/e2e/**"],
