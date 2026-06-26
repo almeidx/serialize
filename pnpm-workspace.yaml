@@ -2,5 +2,3 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
-overrides:
-  cookie: ^0.7.2
