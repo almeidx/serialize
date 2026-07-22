@@ -24,7 +24,7 @@
 		"@zag-js/svelte": "^1.42.0",
 		"@zag-js/toggle-group": "^1.42.0",
 		"@zag-js/tree-view": "^1.42.0",
-		"monaco-editor": "^0.55.1"
+		"monaco-editor": "^0.56.0"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",
@@ -37,7 +37,7 @@
 		"@vitest/coverage-v8": "^4.1.10",
 		"oxfmt": "^0.59.0",
 		"oxlint": "^1.74.0",
-		"svelte": "^5.56.6",
+		"svelte": "^5.56.7",
 		"svelte-check": "^4.7.3",
 		"tailwindcss": "^4.3.3",
 		"typescript": "~6.0.3",
