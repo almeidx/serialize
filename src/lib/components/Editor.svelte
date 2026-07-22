@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import type * as Monaco from 'monaco-editor';
+	import type * as Monaco from 'monaco-editor/editor';
 
 	interface Props {
 		value: string;
@@ -31,12 +31,13 @@
 		if (monacoRuntimePromise) return monacoRuntimePromise;
 
 		monacoRuntimePromise = Promise.all([
-			import('monaco-editor/esm/vs/editor/editor.worker?worker'),
-			import('monaco-editor/esm/vs/language/json/json.worker?worker'),
-			import('monaco-editor/esm/vs/language/json/monaco.contribution'),
-			import('monaco-editor/esm/vs/editor/editor.api'),
+			import('monaco-editor/features/register.all'),
+			import('monaco-editor/editor/editor.worker?worker'),
+			import('monaco-editor/languages/features/json/json.worker?worker'),
+			import('monaco-editor/languages/features/json/register'),
+			import('monaco-editor/editor'),
 		]).then(
-			([editorWorkerModule, jsonWorkerModule, _jsonContribution, monacoModule]) => ({
+			([_editorFeatures, editorWorkerModule, jsonWorkerModule, _jsonContribution, monacoModule]) => ({
 			monaco: monacoModule,
 			EditorWorker: editorWorkerModule.default as WorkerFactory,
 			JsonWorker: jsonWorkerModule.default as WorkerFactory,
