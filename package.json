@@ -15,7 +15,7 @@
 		"test": "svelte-kit sync && vitest run",
 		"test:ci": "pnpm test:coverage",
 		"test:coverage": "svelte-kit sync && vitest run --coverage",
-		"test:e2e": "playwright test"
+		"test:e2e": "svelte-kit sync && playwright test"
 	},
 	"dependencies": {
 		"@zag-js/collapsible": "^1.42.0",

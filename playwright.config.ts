@@ -22,7 +22,7 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command: "pnpm exec svelte-kit sync && pnpm dev --host 127.0.0.1 --port 4399",
+		command: "pnpm dev --host 127.0.0.1 --port 4399",
 		url: "http://127.0.0.1:4399",
 		reuseExistingServer: false,
 		timeout: 120_000,
