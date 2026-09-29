@@ -1,7 +1,11 @@
 # Agent guidance
 
 Serialize is a client-side SvelteKit tool for parsing, editing, and converting
-PHP serialized values. Cloudflare Workers serves the built application.
+PHP serialized values. It is prerendered with `@sveltejs/adapter-static` and
+served by an assets-only Cloudflare Worker (no Worker script, no server code).
+Response headers live in `static/_headers`; CSP is emitted as a `<meta>` tag.
+Unknown paths get `build/404.html` (adapter-static `fallback` plus
+`not_found_handling: "404-page"`), which renders `src/routes/+error.svelte`.
 
 Use `README.md` for setup and `package.json` for scripts. Keep this file focused
 on format and privacy constraints.
@@ -36,5 +40,5 @@ pnpm lint
 pnpm check
 pnpm test
 pnpm test:e2e  # editing or synchronization changes
-pnpm build     # bundling or Worker changes
+pnpm build     # bundling, prerendering, or deployment changes
 ```

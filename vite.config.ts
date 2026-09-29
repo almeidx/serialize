@@ -1,5 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
-import adapter from "@sveltejs/adapter-cloudflare";
+import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
@@ -15,7 +15,7 @@ export default defineConfig({
 					"default-src": ["self"],
 					"base-uri": ["none"],
 					"object-src": ["none"],
-					"frame-ancestors": ["none"],
+					// frame-ancestors is ignored in <meta> CSP; it is sent via static/_headers.
 					"form-action": ["self"],
 					"script-src": ["self"],
 					"style-src": ["self", "unsafe-inline"],
@@ -26,7 +26,7 @@ export default defineConfig({
 					"manifest-src": ["self"],
 				},
 			},
-			adapter: adapter(),
+			adapter: adapter({ fallback: "404.html" }),
 		}),
 	],
 	test: {

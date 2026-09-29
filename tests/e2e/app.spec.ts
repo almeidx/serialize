@@ -21,6 +21,16 @@ async function setInputEditorValue(page: Page, value: string): Promise<void> {
 	await page.keyboard.insertText(value);
 }
 
+test("unknown paths render the 404 page with a link back to the app", async ({ page }) => {
+	const response = await page.goto("/does/not/exist");
+	expect(response?.status()).toBe(404);
+	await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+
+	await page.getByRole("link", { name: "Back to Serialize" }).click();
+	await expect(page).toHaveURL("/");
+	await waitForClientReady(page);
+});
+
 test("tree edit works for keys that contain dots", async ({ page }) => {
 	await page.goto("/");
 	await setInputMode(page, "JSON");

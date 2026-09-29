@@ -38,7 +38,7 @@ pnpm preview
 - [SvelteKit](https://svelte.dev/) - Framework
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor
-- [Cloudflare Workers](https://workers.cloudflare.com/) - Deployment
+- [Cloudflare Workers](https://workers.cloudflare.com/) - Static assets deployment (prerendered, no server code)
 
 ## License
 
