@@ -22,7 +22,7 @@
 			: (page.error?.message ?? 'Something went wrong.')}
 	</p>
 	<a
-		href={resolve('/')}
+		href={resolve('')}
 		class="mt-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
 	>
 		Back to Serialize

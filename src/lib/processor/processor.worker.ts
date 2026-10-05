@@ -1,5 +1,5 @@
-import { processInputValue, processParsedData } from "$lib/processor";
-import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from "$lib/processor/worker-protocol";
+import { processInputValue, processParsedData } from "#lib/processor/index.js";
+import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from "#lib/processor/worker-protocol.js";
 
 const worker = globalThis as unknown as {
 	onmessage: ((event: MessageEvent) => void) | null;

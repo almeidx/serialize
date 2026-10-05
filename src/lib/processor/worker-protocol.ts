@@ -1,5 +1,5 @@
-import type { JsonValue } from "$lib/converter";
-import type { ProcessInputResult, ProcessParsedResult } from "$lib/processor";
+import type { JsonValue } from "#lib/converter/index.js";
+import type { ProcessInputResult, ProcessParsedResult } from "#lib/processor/index.js";
 import type { InputMode } from "./types";
 
 export interface ProcessInputRequest {

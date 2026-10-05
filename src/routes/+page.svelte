@@ -1,33 +1,33 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { onDestroy, onMount } from 'svelte';
 	import * as slider from '@zag-js/slider';
 	import * as toggleGroup from '@zag-js/toggle-group';
 	import { mergeProps, normalizeProps, useMachine } from '@zag-js/svelte';
-	import { type JsonValue } from '$lib/converter';
+	import { type JsonValue } from '#lib/converter/index.js';
 	import {
 		processInputValue,
 		processParsedData,
 		type ProcessInputResult,
 		type ProcessParsedResult,
-	} from '$lib/processor';
-	import type { InputMode } from '$lib/processor/types';
+	} from '#lib/processor/index.js';
+	import type { InputMode } from '#lib/processor/types.js';
 	import type {
 		ProcessorWorkerRequest,
 		ProcessorWorkerResponse,
-	} from '$lib/processor/worker-protocol';
-	import type { Stats } from '$lib/stats';
-	import EditableTreeView from '$lib/components/EditableTreeView.svelte';
-	import type { TreeOperation } from '$lib/components/tree-types';
+	} from '#lib/processor/worker-protocol.js';
+	import type { Stats } from '#lib/stats.js';
+	import EditableTreeView from '#lib/components/EditableTreeView.svelte';
+	import type { TreeOperation } from '#lib/components/tree-types.js';
 	import {
 		addAtPath,
 		deleteAtPath,
 		setValueAtPath,
-	} from '$lib/tree/operations';
-	import Editor from '$lib/components/Editor.svelte';
-	import StatsPanel from '$lib/components/StatsPanel.svelte';
-	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
-	import CopyMenu from '$lib/components/CopyMenu.svelte';
+	} from '#lib/tree/operations.js';
+	import Editor from '#lib/components/Editor.svelte';
+	import StatsPanel from '#lib/components/StatsPanel.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import CopyMenu from '#lib/components/CopyMenu.svelte';
 
 	type OutputView = 'tree' | 'json';
 

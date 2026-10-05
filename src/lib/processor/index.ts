@@ -1,6 +1,6 @@
-import { fromJson, toJson, type JsonValue } from "$lib/converter";
-import { parse, serialize as phpSerialize } from "$lib/parser";
-import { computeStats, type Stats } from "$lib/stats";
+import { fromJson, toJson, type JsonValue } from "#lib/converter/index.js";
+import { parse, serialize as phpSerialize } from "#lib/parser/index.js";
+import { computeStats, type Stats } from "#lib/stats.js";
 import type { InputMode } from "./types";
 
 export interface ProcessInputResult {
