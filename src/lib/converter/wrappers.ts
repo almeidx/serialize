@@ -54,7 +54,7 @@ export function fromFloatWrapper(obj: JsonObject): PhpValue {
 	if (val === "NAN") return { type: "float", value: NaN };
 	if (val === "INF") return { type: "float", value: Infinity };
 	if (val === "-INF") return { type: "float", value: -Infinity };
-	throw new Error(`Float wrapper has invalid value '${String(val)}', expected 'NAN', 'INF', or '-INF'`);
+	throw new Error(`Float wrapper has invalid value '${JSON.stringify(val)}', expected 'NAN', 'INF', or '-INF'`);
 }
 
 export function toBinaryWrapper(value: string): JsonObject {

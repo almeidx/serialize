@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import type { PhpValue } from "../parser";
 import { fromJson, toJson, type JsonValue } from "./json";
 

@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
 
 const selectAllShortcut = process.platform === "darwin" ? "Meta+A" : "Control+A";
 

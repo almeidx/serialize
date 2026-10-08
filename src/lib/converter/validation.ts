@@ -65,7 +65,7 @@ export function parseVisibilityMap(value: JsonValue | undefined): Record<string,
 
 	for (const [key, visibility] of Object.entries(obj)) {
 		if (visibility !== "public" && visibility !== "protected" && visibility !== "private") {
-			throw new Error(`Invalid visibility '${String(visibility)}' for property '${key}'`);
+			throw new Error(`Invalid visibility '${JSON.stringify(visibility)}' for property '${key}'`);
 		}
 		visibilityMap[key] = visibility;
 	}

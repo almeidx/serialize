@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import type { JsonValue } from "../converter/json";
 import { addAtPath, deleteAtPath, setValueAtPath } from "./operations";
 

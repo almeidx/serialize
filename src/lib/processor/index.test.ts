@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import { processInputValue, processParsedData } from "./index";
 
 describe("processor", () => {

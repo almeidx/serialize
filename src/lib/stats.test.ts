@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import { computeStats } from "./stats";
 import type { PhpValue } from "./parser/types";
+import { computeStats } from "./stats";
 
 describe("computeStats", () => {
 	it("computes byte size, node count, depth, and types", () => {
