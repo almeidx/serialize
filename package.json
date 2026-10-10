@@ -21,33 +21,33 @@
 		"test:e2e": "svelte-kit sync && playwright test"
 	},
 	"dependencies": {
-		"@zag-js/collapsible": "^1.44.0",
-		"@zag-js/menu": "^1.44.0",
-		"@zag-js/slider": "^1.44.0",
-		"@zag-js/svelte": "^1.44.0",
-		"@zag-js/toggle-group": "^1.44.0",
-		"@zag-js/tree-view": "^1.44.0",
+		"@zag-js/collapsible": "^1.45.0",
+		"@zag-js/menu": "^1.45.0",
+		"@zag-js/slider": "^1.45.0",
+		"@zag-js/svelte": "^1.45.0",
+		"@zag-js/toggle-group": "^1.45.0",
+		"@zag-js/tree-view": "^1.45.0",
 		"monaco-editor": "^0.57.0"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.13.0",
-		"@playwright/test": "^1.63.0",
+		"@playwright/test": "^1.64.0",
 		"@sveltejs/adapter-static": "^4.0.0",
-		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/kit": "^3.0.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/node": "^25.9.9",
 		"@vitest/coverage-v8": "^5.0.3",
-		"oxfmt": "^0.71.0",
+		"oxfmt": "^0.72.0",
 		"oxlint": "^1.87.0",
 		"oxlint-tsgolint": "^7.0.2003",
-		"svelte": "^5.57.1",
+		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "^4.3.3",
 		"typescript": "~6.0.3",
-		"vite": "^8.3.2",
+		"vite": "^8.3.4",
 		"vitest": "^5.0.3",
-		"wrangler": "^4.146.0"
+		"wrangler": "^4.149.0"
 	},
-	"packageManager": "pnpm@12.8.1"
+	"packageManager": "pnpm@12.10.1"
 }
