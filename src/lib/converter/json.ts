@@ -1,139 +1,119 @@
-import type { PhpArrayEntry, PhpValue } from "../parser/types";
-import { validateReferenceGraph } from "./references";
-import type { JsonObject, JsonValue } from "./types";
-import {
-	fromArrayWrapper,
-	fromBinaryWrapper,
-	fromCustomObjectWrapper,
-	fromEnumWrapper,
-	fromFloatWrapper,
-	fromObjectWrapper,
-	fromReferenceWrapper,
-	toArrayWrapper,
-	toBinaryWrapper,
-	toCustomObjectWrapper,
-	toEnumWrapper,
-	toObjectWrapper,
-	toReferenceWrapper,
-} from "./wrappers";
+import { MAX_DEPTH, ReferenceSlots } from "#lib/parser/references.js";
+import { toArrayKey, type PhpBool, type PhpInt, type PhpNull, type PhpValue } from "#lib/parser/types.js";
+import type { JsonValue } from "./types.js";
+import { dataKeyAllocator, decodeWrapper, encodeWrapper, isWrapper, type Wrapper } from "./wrappers.js";
 
-export type { JsonValue } from "./types";
-
+/** PHP values JSON can hold directly become plain JSON; the rest become `__php_type__` wrappers. */
 export function toJson(php: PhpValue): JsonValue {
 	switch (php.type) {
 		case "null":
 			return null;
-
 		case "bool":
-			return php.value;
-
 		case "int":
 			return php.value;
-
 		case "float":
-			if (!Number.isFinite(php.value)) {
-				return {
-					__php_type__: "float",
-					value: Number.isNaN(php.value) ? "NAN" : php.value > 0 ? "INF" : "-INF",
-				};
-			}
-			return php.value;
-
+			// A plain integral number would read back as an int.
+			return Number.isFinite(php.value) && !Number.isInteger(php.value) ? php.value : encodeWrapper(php);
 		case "string":
-			return php.binary ? toBinaryWrapper(php.value) : php.value;
-
-		case "array":
-			return isSequentialArray(php.entries)
-				? php.entries.map((entry) => toJson(entry.value))
-				: toArrayWrapper(php.entries, toJson);
-
-		case "object":
-			return toObjectWrapper(php.className, php.properties, toJson);
-
+			return isBinary(php.value) ? encodeWrapper(php) : php.value;
+		case "array": {
+			if (php.entries.every(({ key }, index) => key.type === "int" && key.value === index)) {
+				return php.entries.map(({ value }) => toJson(value));
+			}
+			const dataKey = dataKeyAllocator();
+			return encodeWrapper({
+				type: "array",
+				entries: php.entries.map(({ key, value }) => ({
+					key,
+					dataKey: dataKey(String(key.value)),
+					value: toJson(value),
+				})),
+			});
+		}
+		case "object": {
+			const dataKey = dataKeyAllocator();
+			return encodeWrapper({
+				type: "object",
+				className: php.className,
+				properties: php.properties.map(({ value, ...property }) => ({
+					...property,
+					dataKey: dataKey(property.name),
+					value: toJson(value),
+				})),
+			});
+		}
 		case "custom_object":
-			return toCustomObjectWrapper(php.className, php.payload);
-
 		case "enum":
-			return toEnumWrapper(php.className, php.caseName);
-
 		case "reference":
-			return toReferenceWrapper(php.index, php.isObject);
+			return encodeWrapper(php);
 	}
 }
 
+/** Control characters other than tab, newline and carriage return mark a string as binary. */
+function isBinary(text: string): boolean {
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i);
+		if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) return true;
+	}
+	return false;
+}
+
+/** Throws a descriptive error when `json` is not a valid representation. */
 export function fromJson(json: JsonValue): PhpValue {
-	const php = fromJsonInternal(json);
-	validateReferenceGraph(php);
-	return php;
+	const references = new ReferenceSlots();
+
+	function convert(json: JsonValue, depth: number): PhpValue {
+		if (depth > MAX_DEPTH) throw new Error(`Maximum nesting depth of ${MAX_DEPTH} exceeded`);
+
+		const node = decode(json);
+		if (node.type === "reference") {
+			const problem = references.add(node);
+			if (problem) throw new Error(problem);
+			return node;
+		}
+
+		references.add(node);
+		switch (node.type) {
+			case "array":
+				return {
+					type: "array",
+					entries: node.entries.map(({ key, value }) => ({ key, value: convert(value, depth + 1) })),
+				};
+			case "object":
+				return {
+					type: "object",
+					className: node.className,
+					properties: node.properties.map(({ name, visibility, className, value }) => ({
+						name,
+						visibility,
+						className,
+						value: convert(value, depth + 1),
+					})),
+				};
+			default:
+				return node;
+		}
+	}
+
+	return convert(json, 0);
 }
 
-function fromJsonInternal(json: JsonValue): PhpValue {
-	if (json === null) {
-		return { type: "null" };
-	}
-
-	if (typeof json === "boolean") {
-		return { type: "bool", value: json };
-	}
-
-	if (typeof json === "number") {
-		if (Number.isInteger(json)) {
-			return { type: "int", value: json };
-		}
-		return { type: "float", value: json };
-	}
-
-	if (typeof json === "string") {
-		return { type: "string", value: json };
-	}
-
+/** `json` as a PHP value whose children are still JSON. */
+function decode(json: JsonValue): Wrapper | PhpNull | PhpBool | PhpInt {
+	if (json === null) return { type: "null" };
+	if (typeof json === "boolean") return { type: "bool", value: json };
+	if (typeof json === "number")
+		return Number.isInteger(json) ? { type: "int", value: json } : { type: "float", value: json };
+	if (typeof json === "string") return { type: "string", value: json };
 	if (Array.isArray(json)) {
-		const entries = json.map((item, index) => ({
-			key: { type: "int" as const, value: index },
-			value: fromJsonInternal(item),
-		}));
-		return { type: "array", entries };
+		return {
+			type: "array",
+			entries: json.map((value, index) => ({ key: { type: "int", value: index }, dataKey: String(index), value })),
+		};
 	}
-
-	if (typeof json === "object") {
-		const obj = json as JsonObject;
-		const typeTag = obj.__php_type__;
-
-		if (typeTag !== undefined) {
-			if (typeof typeTag !== "string") {
-				throw new Error("__php_type__ must be a string when present");
-			}
-
-			switch (typeTag) {
-				case "float":
-					return fromFloatWrapper(obj);
-				case "string":
-					return fromBinaryWrapper(obj);
-				case "reference":
-					return fromReferenceWrapper(obj);
-				case "array":
-					return fromArrayWrapper(obj, fromJsonInternal);
-				case "object":
-					return fromObjectWrapper(obj, fromJsonInternal);
-				case "custom_object":
-					return fromCustomObjectWrapper(obj);
-				case "enum":
-					return fromEnumWrapper(obj);
-				default:
-					throw new Error(`Unsupported __php_type__ value '${typeTag}'`);
-			}
-		}
-
-		const entries = Object.entries(obj).map(([key, value]) => ({
-			key: { type: "string" as const, value: key },
-			value: fromJsonInternal(value),
-		}));
-		return { type: "array", entries };
-	}
-
-	return { type: "null" };
-}
-
-function isSequentialArray(entries: PhpArrayEntry[]): boolean {
-	return entries.every((entry, index) => entry.key.type === "int" && entry.key.value === index);
+	if (isWrapper(json)) return decodeWrapper(json);
+	return {
+		type: "array",
+		entries: Object.entries(json).map(([key, value]) => ({ key: toArrayKey(key), dataKey: key, value })),
+	};
 }

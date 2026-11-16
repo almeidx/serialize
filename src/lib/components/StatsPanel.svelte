@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatBytes } from '#lib/format.js';
-	import type { Stats } from '#lib/stats.js';
+	import type { Stats } from '#lib/processor/stats.js';
 
 	let { stats }: { stats: Stats } = $props();
 

@@ -1,90 +1,38 @@
-import type { PhpValue, PhpArrayEntry, PhpObjectProperty } from "./types";
-import { utf8ByteLength } from "./utf8";
+import { formatFloat } from "./float.js";
+import { encodePropertyName } from "./property-name.js";
+import type { PhpValue } from "./types.js";
+import { utf8ByteLength } from "./utf8.js";
 
 export function serialize(value: PhpValue): string {
-	return serializeValue(value);
-}
-
-function serializeValue(value: PhpValue): string {
 	switch (value.type) {
 		case "null":
 			return "N;";
-
 		case "bool":
-			return `b:${value.value ? "1" : "0"};`;
-
-		case "int": {
-			const intVal = Math.floor(value.value);
-			if (!Number.isFinite(intVal)) {
-				throw new Error(`Cannot serialize non-finite integer value: ${value.value}`);
-			}
-			return `i:${intVal};`;
-		}
-
+			return `b:${value.value ? 1 : 0};`;
+		case "int":
+			if (!Number.isFinite(value.value)) throw new Error(`Cannot serialize non-finite integer value: ${value.value}`);
+			return `i:${value.value};`;
 		case "float":
-			if (value.value === Infinity) {
-				return "d:INF;";
-			} else if (value.value === -Infinity) {
-				return "d:-INF;";
-			} else if (Number.isNaN(value.value)) {
-				return "d:NAN;";
-			}
-			return `d:${value.value};`;
-
+			return `d:${formatFloat(value.value)};`;
 		case "string":
-			return `s:${utf8ByteLength(value.value)}:"${value.value}";`;
-
+			return `s:${quoted(value.value)};`;
 		case "array":
-			return serializeArray(value.entries);
-
-		case "object":
-			return serializeObject(value.className, value.properties);
-
+			return `a:${value.entries.length}:{${value.entries.map(({ key, value }) => serialize(key) + serialize(value)).join("")}}`;
+		case "object": {
+			const properties = value.properties.map(
+				(property) => `s:${quoted(encodePropertyName(property, value.className))};${serialize(property.value)}`,
+			);
+			return `O:${quoted(value.className)}:${properties.length}:{${properties.join("")}}`;
+		}
 		case "custom_object":
-			return serializeCustomObject(value.className, value.payload);
-
+			return `C:${quoted(value.className)}:${utf8ByteLength(value.payload)}:{${value.payload}}`;
 		case "enum":
-			return serializeEnum(value.className, value.caseName);
-
+			return `E:${quoted(`${value.className}:${value.caseName}`)};`;
 		case "reference":
 			return `${value.isObject ? "r" : "R"}:${value.index};`;
-
-		default: {
-			const _exhaustive: never = value;
-			throw new Error(`Unknown PHP value type: ${(_exhaustive as { type: string }).type}`);
-		}
 	}
 }
 
-function serializeArray(entries: PhpArrayEntry[]): string {
-	const parts = entries.map((entry) => serializeValue(entry.key) + serializeValue(entry.value));
-	return `a:${entries.length}:{${parts.join("")}}`;
-}
-
-function serializeObject(className: string, properties: PhpObjectProperty[]): string {
-	const parts = properties.map((prop) => {
-		const name = encodePropertyName(prop.name, prop.visibility, prop.className ?? className);
-		return `s:${utf8ByteLength(name)}:"${name}";${serializeValue(prop.value)}`;
-	});
-	return `O:${utf8ByteLength(className)}:"${className}":${properties.length}:{${parts.join("")}}`;
-}
-
-function serializeCustomObject(className: string, payload: string): string {
-	return `C:${utf8ByteLength(className)}:"${className}":${utf8ByteLength(payload)}:{${payload}}`;
-}
-
-function serializeEnum(className: string, caseName: string): string {
-	const enumName = `${className}:${caseName}`;
-	return `E:${utf8ByteLength(enumName)}:"${enumName}";`;
-}
-
-function encodePropertyName(name: string, visibility: "public" | "protected" | "private", className: string): string {
-	switch (visibility) {
-		case "public":
-			return name;
-		case "protected":
-			return `\0*\0${name}`;
-		case "private":
-			return `\0${className}\0${name}`;
-	}
+function quoted(text: string): string {
+	return `${utf8ByteLength(text)}:"${text}"`;
 }

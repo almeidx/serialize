@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Monaco's editor themes in `Editor.svelte` mirror --bg/--surface/--faint so the chrome and the editors read as one surface. */
 @theme {
 	--color-bg: var(--bg);
 	--color-surface: var(--surface);
@@ -24,6 +23,7 @@
 	--font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
+/* Keep --bg, --surface and --faint opaque: `Editor.svelte` passes them to Monaco, which rejects translucent colors. */
 :root {
 	color-scheme: light;
 	--bg: #ffffff;

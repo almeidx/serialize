@@ -4,10 +4,8 @@
 		buildTree,
 		convert,
 		defaultExpanded,
-		describe,
 		EDITABLE_KINDS,
-		editText,
-		isContainer,
+		isEditableKind,
 		parseEdit,
 		type EditableKind,
 		type Kind,
@@ -40,7 +38,7 @@
 		tree.collection<TreeNode>({
 			rootNode: root,
 			nodeToValue: (node) => node.id,
-			nodeToString: (node) => String(node.key ?? 'root'),
+			nodeToString: keyLabel,
 			nodeToChildren: (node) => node.children,
 		}),
 	);
@@ -55,7 +53,6 @@
 	}));
 	const api = $derived(tree.connect(service, normalizeProps));
 
-	/** One inline editor at a time: a value being edited or a key being added. */
 	let editing = $state<{ node: TreeNode; text: string } | null>(null);
 	let adding = $state<{ node: TreeNode; key: string } | null>(null);
 
@@ -69,8 +66,7 @@
 	}
 
 	function startEdit(node: TreeNode) {
-		const text = editText(node);
-		if (text !== undefined && editing?.node.id !== node.id) editing = { node, text };
+		if (node.editText !== undefined && editing?.node.id !== node.id) editing = { node, text: node.editText };
 	}
 
 	function commitEdit() {
@@ -91,7 +87,7 @@
 
 	function startAdd(node: TreeNode) {
 		if (node.children.length > 0) api.expand([node.id]);
-		adding = { node, key: node.kind === 'array' ? String(node.children.length) : '' };
+		adding = { node, key: node.addKey ?? '' };
 	}
 
 	function commitAdd() {
@@ -134,7 +130,6 @@
 {/snippet}
 
 {#snippet row(node: TreeNode, props: tree.NodeProps, state: tree.NodeState)}
-	{@const container = isContainer(node.kind)}
 	<div class="group flex items-center gap-1 rounded-md pr-1 hover:bg-raised" style:padding-left="{(props.indexPath.length - 1) * INDENT_PX}px">
 		<div
 			class="flex min-w-0 flex-1 items-center gap-1 rounded-md py-0.5"
@@ -143,7 +138,7 @@
 				: mergeProps(api.getItemProps(props), {
 						onclick: () => startEdit(node),
 						onkeydown: (event: KeyboardEvent) => {
-							if (event.key !== 'Enter' || event.target !== event.currentTarget || editText(node) === undefined) return;
+							if (event.key !== 'Enter' || event.target !== event.currentTarget || node.editText === undefined) return;
 							event.preventDefault();
 							startEdit(node);
 						},
@@ -171,8 +166,8 @@
 					onkeydown={(event) => onEditorKeydown(event, commitEdit, cancelEdit)}
 				/>
 			{:else}
-				<span class="min-w-0 break-all {VALUE_CLASS[node.kind]}" class:cursor-text={!container && editText(node) !== undefined}>
-					{describe(node)}
+				<span class="min-w-0 break-all {VALUE_CLASS[node.kind]}" class:cursor-text={node.editText !== undefined}>
+					{node.summary}
 				</span>
 			{/if}
 		</div>
@@ -184,14 +179,14 @@
 				value={node.kind}
 				onchange={(event) => onedit({ type: 'set', path: node.path, value: convert(node, event.currentTarget.value as EditableKind) })}
 			>
-				{#if !(EDITABLE_KINDS as readonly string[]).includes(node.kind)}
+				{#if !isEditableKind(node.kind)}
 					<option value={node.kind} disabled>{node.kind}</option>
 				{/if}
 				{#each EDITABLE_KINDS as kind (kind)}
 					<option value={kind}>{kind}</option>
 				{/each}
 			</select>
-			{#if container}
+			{#if node.addKey !== undefined}
 				<button type="button" class="grid size-5 place-items-center rounded text-muted hover:bg-bg hover:text-success" aria-label="Add item to {keyLabel(node)}" title="Add item" onclick={() => startAdd(node)}>
 					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
 				</button>

@@ -1,36 +1,26 @@
-export function utf8ByteLength(str: string): number {
-	let bytes = 0;
-
-	for (let i = 0; i < str.length; i++) {
-		const code = str.charCodeAt(i);
-		if (code <= 0x7f) {
-			bytes += 1;
-		} else if (code <= 0x7ff) {
-			bytes += 2;
-		} else if (code >= 0xd800 && code <= 0xdbff) {
-			const next = str.charCodeAt(i + 1);
-			if (next < 0xdc00 || next > 0xdfff) {
-				throw new Error(`Invalid UTF-16 string: unmatched high surrogate at index ${i}`);
-			}
-			bytes += 4;
-			i++;
-		} else if (code >= 0xdc00 && code <= 0xdfff) {
-			throw new Error(`Invalid UTF-16 string: unexpected low surrogate at index ${i}`);
-		} else {
-			bytes += 3;
-		}
+/**
+ * UTF-8 byte count of the code point starting at `index`, or 0 for an unpaired surrogate.
+ * A 4-byte code point spans two UTF-16 code units.
+ */
+export function utf8Width(text: string, index: number): number {
+	const code = text.charCodeAt(index);
+	if (code <= 0x7f) return 1;
+	if (code <= 0x7ff) return 2;
+	if (code >= 0xd800 && code <= 0xdbff) {
+		const next = text.charCodeAt(index + 1);
+		return next >= 0xdc00 && next <= 0xdfff ? 4 : 0;
 	}
-
-	return bytes;
+	if (code >= 0xdc00 && code <= 0xdfff) return 0;
+	return 3;
 }
 
-/** Control characters other than tab/newline/carriage return mark a string as binary. */
-export function hasBinaryControlCharacters(value: string): boolean {
-	for (let i = 0; i < value.length; i++) {
-		const code = value.charCodeAt(i);
-		if (code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
-			return true;
-		}
+export function utf8ByteLength(text: string): number {
+	let bytes = 0;
+	for (let i = 0; i < text.length;) {
+		const width = utf8Width(text, i);
+		if (width === 0) throw new Error(`Invalid UTF-16 string: unpaired surrogate at index ${i}`);
+		bytes += width;
+		i += width === 4 ? 2 : 1;
 	}
-	return false;
+	return bytes;
 }

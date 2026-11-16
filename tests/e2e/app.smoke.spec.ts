@@ -1,8 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A";
-
 function inputEditor(page: Page) {
 	return page.getByRole("textbox", { name: "Input" });
 }
@@ -15,7 +13,7 @@ function inputText(page: Page) {
 async function typeInput(page: Page, value: string): Promise<void> {
 	const editor = inputEditor(page);
 	await editor.focus();
-	await page.keyboard.press(selectAll);
+	await page.keyboard.press("ControlOrMeta+A");
 	await page.keyboard.insertText(value);
 }
 
@@ -42,7 +40,7 @@ test("the example parses into the tree and converts between input formats", asyn
 	await expect(tree.getByRole("treeitem", { name: /"Alice"/ })).toBeVisible();
 	await expect(page.getByText(/\d+ nodes · depth \d+/)).toBeVisible();
 
-	await page.getByRole("radio", { name: "JSON", exact: true }).first().click();
+	await page.getByRole("radiogroup", { name: "Input format" }).getByRole("radio", { name: "JSON" }).click();
 	await expect(inputText(page)).toContainText('"__php_class__": "User"');
 
 	await page.getByRole("radio", { name: "PHP", exact: true }).click();
@@ -111,7 +109,7 @@ test("output view, stats and theme preferences persist across reloads", async ({
 	await page.goto("/");
 	const theme = await page.locator("html").getAttribute("data-theme");
 	await page.getByRole("button", { name: /Switch to (light|dark) theme/ }).click();
-	await page.getByRole("radio", { name: "JSON", exact: true }).first().click();
+	await page.getByRole("radiogroup", { name: "Input format" }).getByRole("radio", { name: "JSON" }).click();
 	await page.getByRole("button", { name: "Example", exact: true }).click();
 	await page.getByRole("radiogroup", { name: "Output view" }).getByRole("radio", { name: "JSON" }).click();
 	await page.getByRole("button", { name: "Stats" }).click();

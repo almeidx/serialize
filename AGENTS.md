@@ -22,9 +22,11 @@ miss while changing the code.
 - `src/lib/parser/` must not import other app code: it owns the PHP serialized
   format and its `PhpValue` AST. Parser and serializer changes must round-trip
   supported values and preserve PHP string-length (UTF-8 byte) semantics.
-- `src/lib/converter/json.ts` owns the JSON representation. Preserve the
-  `__php_*` metadata wrappers for PHP-only information; ordinary user keys must
-  not be mistaken for metadata.
+- `src/lib/converter/` owns the JSON representation; only `wrappers.ts` names
+  `__php_*` fields, and everything else (including the tree) goes through its
+  `decodeWrapper`/`encodeWrapper`. Existing exports must keep importing,
+  including older field layouts. Ordinary user keys must not be mistaken for
+  metadata.
 - The tree and the JSON output are two views of `Session.data`. Every edit goes
   through `Session` (tree edits via `applyOperation`); do not keep independent
   copies of the value in components.
@@ -34,12 +36,13 @@ miss while changing the code.
 
 ## Useful areas
 
-- `src/lib/parser/` — tokenizer/parser, serializer, AST types, UTF-8 helpers
-- `src/lib/converter/` — AST/JSON conversion and wrapper validation
-- `src/lib/processor/` — pure `process.ts`, the Web Worker, its protocol and
-  main-thread client, and the reactive `Session` the page renders
-- `src/lib/tree/` — `operations.ts` (path-based edits on the JSON value) and
-  `nodes.ts` (the tree's view model over the metadata wrappers)
+- `src/lib/parser/` — parser, serializer, AST types, UTF-8 widths, reference
+  slot numbering and the nesting limit shared with the converter
+- `src/lib/converter/` — AST/JSON conversion and the wrapper codec
+- `src/lib/processor/` — pure `process.ts` and `stats.ts`, the Web Worker and
+  its main-thread client, and the reactive `Session` the page renders
+- `src/lib/tree/` — `shape.ts` (reading and editing one container),
+  `operations.ts` (path-based edits) and `nodes.ts` (the tree's view model)
 - `src/lib/components/` — `Editor` wraps Monaco, `TreeView` wraps
   `@zag-js/tree-view`
 - `src/routes/+page.svelte` — layout and wiring between the session and views

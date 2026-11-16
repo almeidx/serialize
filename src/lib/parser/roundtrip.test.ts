@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "./parse";
-import { serialize } from "./serialize";
+import { parse } from "./parse.js";
+import { serialize } from "./serialize.js";
 
 describe("parser/serializer round-trip fixtures", () => {
-	it("round-trips binary strings and marks them as binary", () => {
+	it("round-trips strings with control characters", () => {
 		const input = `s:5:"a${String.fromCharCode(0)}b${String.fromCharCode(0)}c";`;
 		const parsed = parse(input);
 
 		expect(parsed).toEqual({
 			type: "string",
 			value: `a${String.fromCharCode(0)}b${String.fromCharCode(0)}c`,
-			binary: true,
 		});
 		expect(serialize(parsed)).toBe(input);
 	});
@@ -50,12 +49,15 @@ describe("parser/serializer round-trip fixtures", () => {
 		expect(serialize(parsed)).toBe(input);
 	});
 
-	it("round-trips value and object references", () => {
-		const valueRef = 'a:2:{i:0;s:3:"foo";i:1;R:2;}';
-		const objectRef = 'a:2:{i:0;O:3:"Foo":0:{}i:1;r:2;}';
-
-		expect(serialize(parse(valueRef))).toBe(valueRef);
-		expect(serialize(parse(objectRef))).toBe(objectRef);
+	it("round-trips value, object and self references, numbering slots as PHP does", () => {
+		for (const input of [
+			'a:2:{i:0;s:3:"foo";i:1;R:2;}',
+			'a:2:{i:0;O:3:"Foo":0:{}i:1;r:2;}',
+			'O:3:"Foo":1:{s:4:"self";r:1;}',
+			'a:4:{i:0;i:1;i:1;R:2;i:2;O:1:"A":0:{}i:3;r:3;}',
+		]) {
+			expect(serialize(parse(input))).toBe(input);
+		}
 	});
 
 	it("round-trips custom objects and enums", () => {

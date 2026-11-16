@@ -10,7 +10,7 @@ Parse, edit and convert PHP serialized data and JSON. Everything runs in your br
 2. Inspect the result as a tree or as raw JSON. Both views edit the same value: change scalars inline, change a node's type, add or delete entries.
 3. Every edit is written back to the input. **Copy** exports pretty JSON, minified JSON or PHP serialized.
 
-PHP-only details survive the JSON round trip through `__php_*` metadata wrappers: object class names and property visibility, non-sequential array keys, references, binary strings, `INF`/`NAN`, custom objects and enums. Parsing and serializing run in a Web Worker; nothing you enter is uploaded or stored.
+PHP-only details survive the JSON round trip through `__php_*` metadata wrappers: object class names and property visibility, non-sequential array keys, references, binary strings, whole-number floats and `INF`/`NAN`, custom objects and enums. Parsing and serializing run in a Web Worker; nothing you enter is uploaded or stored.
 
 ## Running Locally
 

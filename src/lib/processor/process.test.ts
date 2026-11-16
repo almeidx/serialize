@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectFormat, processData, processInput } from "./process";
+import { detectFormat, processData, processInput } from "./process.js";
 
 describe("processor", () => {
 	it("processes php input into json, serialized output, and stats", () => {
@@ -7,7 +7,7 @@ describe("processor", () => {
 
 		expect(result.data).toEqual(["foo"]);
 		expect(result.serialized).toBe('a:1:{i:0;s:3:"foo";}');
-		expect(result.stats.nodeCount).toBeGreaterThan(0);
+		expect(result.stats.nodeCount).toBe(3);
 	});
 
 	it("processes json input into php and stats", () => {
@@ -15,8 +15,7 @@ describe("processor", () => {
 
 		expect(result.data).toEqual({ count: 1 });
 		expect(result.serialized).toBe('a:1:{s:5:"count";i:1;}');
-		expect(result.stats.types.object ?? 0).toBe(0);
-		expect(result.stats.types.array ?? 0).toBeGreaterThan(0);
+		expect(result.stats.types).toEqual({ array: 1, string: 1, int: 1 });
 	});
 
 	it("renders edited data back in the active input mode", () => {
@@ -26,6 +25,12 @@ describe("processor", () => {
 
 		expect(php.input).toBe(php.serialized);
 		expect(json.input).toBe(JSON.stringify(data, null, 2));
+	});
+
+	it("keeps PHP types through the JSON representation", () => {
+		const php = 'a:3:{s:1:"f";d:1;s:1:"r";a:1:{i:0;i:2;}s:1:"x";R:3;}';
+		expect(processData("php", processInput("php", php).data).serialized).toBe(php);
+		expect(processInput("json", '{"5":1,"05":2}').serialized).toBe('a:2:{i:5;i:1;s:2:"05";i:2;}');
 	});
 
 	it("detects the format of pasted text", () => {

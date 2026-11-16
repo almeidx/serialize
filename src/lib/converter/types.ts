@@ -1,12 +1,7 @@
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue = null | boolean | number | string | JsonValue[] | JsonObject;
 
-export type JsonObject = Record<string, JsonValue>;
-export type PhpVisibility = "public" | "protected" | "private";
+export type JsonObject = { [key: string]: JsonValue };
 
-export type PhpArrayKey = { type: "int"; value: number } | { type: "string"; value: string };
-
-export interface PhpPropertyMetaEntry {
-	name: string;
-	visibility: PhpVisibility;
-	className?: string;
+export function isJsonObject(value: JsonValue | undefined): value is JsonObject {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PhpValue } from "../parser/types";
-import { fromJson, toJson, type JsonValue } from "./json";
+import type { PhpValue } from "#lib/parser/types.js";
+import { fromJson, toJson } from "./json.js";
+import type { JsonValue } from "./types.js";
 
 describe("fromJson metadata validation", () => {
 	it("converts PHP array wrappers with typed original keys", () => {
@@ -108,6 +109,28 @@ describe("fromJson metadata validation", () => {
 		};
 
 		expect(() => fromJson(malformed)).toThrow(/duplicate key/);
+		expect(() => fromJson({ ...malformed, __php_property_order__: [], data: { name: "Alice" } })).toThrow(
+			/is missing property key 'name'/,
+		);
+	});
+
+	it("reads visibility and declaring class from exports made before property metadata", () => {
+		const legacy: JsonValue = {
+			__php_type__: "object",
+			__php_class__: "User",
+			__php_visibility__: { id: "protected", token: "private" },
+			__php_property_class__: { token: "Base" },
+			data: { id: 1, token: "t" },
+		};
+
+		expect(fromJson(legacy)).toEqual({
+			type: "object",
+			className: "User",
+			properties: [
+				{ name: "id", visibility: "protected", value: { type: "int", value: 1 } },
+				{ name: "token", visibility: "private", className: "Base", value: { type: "string", value: "t" } },
+			],
+		});
 	});
 
 	it("rejects invalid custom object wrappers", () => {
@@ -207,24 +230,12 @@ describe("toJson/fromJson round-trip", () => {
 		});
 	});
 
-	it("preserves binary string wrappers", () => {
-		const input: PhpValue = {
-			type: "string",
-			value: `a${String.fromCharCode(0)}b`,
-			binary: true,
-		};
-
-		expect(fromJson(toJson(input))).toEqual(input);
-	});
-
-	it("preserves UTF-8 binary payloads with non-latin characters", () => {
-		const input: PhpValue = {
-			type: "string",
-			value: `${String.fromCharCode(0)}😀`,
-			binary: true,
-		};
-
-		expect(fromJson(toJson(input))).toEqual(input);
+	it("wraps strings with control characters as base64 and restores them", () => {
+		for (const value of [`a${String.fromCharCode(0)}b`, `${String.fromCharCode(0)}😀`]) {
+			const input: PhpValue = { type: "string", value };
+			expect(toJson(input)).toMatchObject({ __php_type__: "string", __php_binary__: true });
+			expect(fromJson(toJson(input))).toEqual(input);
+		}
 	});
 
 	it("preserves reference wrappers", () => {
@@ -321,7 +332,6 @@ describe("toJson/fromJson round-trip", () => {
 			type: "custom_object",
 			className: "Foo",
 			payload: `a${String.fromCharCode(0)}b`,
-			binary: true,
 		};
 		const enumValue: PhpValue = {
 			type: "enum",

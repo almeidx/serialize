@@ -1,17 +1,35 @@
 <script lang="ts" module>
+	import { settings } from '#lib/settings.svelte.js';
 	import type * as Monaco from 'monaco-editor/editor';
 
 	type WorkerFactory = new () => Worker;
 
-	// Mirror --bg/--surface/--faint in app.css.
-	const THEMES = {
-		light: { base: 'vs', bg: '#ffffff', line: '#f5f5f5', gutter: '#a3a3a3' },
-		dark: { base: 'vs-dark', bg: '#0a0a0a', line: '#141414', gutter: '#525252' },
-	} as const;
+	/** Monaco takes literal colors, so its one global theme is rebuilt from app.css whenever the app theme changes. */
+	function applyTheme(monaco: typeof Monaco): void {
+		const css = getComputedStyle(document.documentElement);
+		// Monaco only accepts `#rrggbb`, while the CSS build may shorten hex colors; canvas serializes any opaque color that way.
+		const canvas = document.createElement('canvas').getContext('2d')!;
+		const color = (name: string) => {
+			canvas.fillStyle = css.getPropertyValue(name).trim();
+			return canvas.fillStyle;
+		};
+		monaco.editor.defineTheme('serialize', {
+			base: settings.theme === 'light' ? 'vs' : 'vs-dark',
+			inherit: true,
+			rules: [],
+			colors: {
+				'editor.background': color('--bg'),
+				'editorGutter.background': color('--bg'),
+				'editor.lineHighlightBackground': color('--surface'),
+				'editor.lineHighlightBorder': color('--surface'),
+				'editorLineNumber.foreground': color('--faint'),
+			},
+		});
+		monaco.editor.setTheme('serialize');
+	}
 
 	let runtime: Promise<typeof Monaco> | null = null;
 
-	/** Loads Monaco once, bundled (no CDN), with its own workers and themes matching the app. */
 	function loadMonaco(): Promise<typeof Monaco> {
 		runtime ??= Promise.all([
 			import('monaco-editor/features/register.all'),
@@ -26,20 +44,10 @@
 				(globalThis as { MonacoEnvironment?: Monaco.Environment }).MonacoEnvironment = {
 					getWorker: (_id, label) => (label === 'json' ? new JsonWorker() : new EditorWorker()),
 				};
-				for (const [name, theme] of Object.entries(THEMES)) {
-					monaco.editor.defineTheme(`serialize-${name}`, {
-						base: theme.base,
-						inherit: true,
-						rules: [],
-						colors: {
-							'editor.background': theme.bg,
-							'editorGutter.background': theme.bg,
-							'editor.lineHighlightBackground': theme.line,
-							'editor.lineHighlightBorder': theme.line,
-							'editorLineNumber.foreground': theme.gutter,
-						},
-					});
-				}
+				applyTheme(monaco);
+				$effect.root(() => {
+					$effect(() => applyTheme(monaco));
+				});
 				return monaco;
 			},
 			(error: unknown) => {
@@ -52,7 +60,6 @@
 </script>
 
 <script lang="ts">
-	import { settings } from '#lib/settings.svelte.js';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -92,8 +99,8 @@
 					value,
 					language,
 					ariaLabel: label,
-					theme: `serialize-${settings.theme}`,
-					fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+					theme: 'serialize',
+					fontFamily: getComputedStyle(container!).fontFamily,
 					fontSize: 13,
 					minimap: { enabled: false },
 					scrollBeyondLastLine: false,
@@ -123,7 +130,6 @@
 		};
 	});
 
-	// External updates; a pending local edit wins and is flushed first.
 	$effect(() => {
 		const next = value;
 		const model = editor?.getModel();
@@ -137,10 +143,6 @@
 	});
 
 	$effect(() => {
-		monaco?.editor.setTheme(`serialize-${settings.theme}`);
-	});
-
-	$effect(() => {
 		const model = editor?.getModel();
 		if (model) monaco?.editor.setModelLanguage(model, language);
 	});
@@ -149,5 +151,5 @@
 {#if failed}
 	<div class="grid size-full place-items-center p-6 text-sm text-muted" role="alert">The editor failed to load. Reload the page to try again.</div>
 {:else}
-	<div bind:this={container} class="size-full min-h-0"></div>
+	<div bind:this={container} class="size-full min-h-0 font-mono"></div>
 {/if}

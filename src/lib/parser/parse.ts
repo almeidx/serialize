@@ -1,477 +1,264 @@
-import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
-import { hasBinaryControlCharacters } from "./utf8";
+import { parseNonFiniteFloat } from "./float.js";
+import { decodePropertyName } from "./property-name.js";
+import { MAX_DEPTH, ReferenceSlots } from "./references.js";
+import {
+	ParseError,
+	type PhpArrayEntry,
+	type PhpInt,
+	type PhpObjectProperty,
+	type PhpString,
+	type PhpValue,
+} from "./types.js";
+import { utf8Width } from "./utf8.js";
 
-const MAX_DEPTH = 512;
 const MAX_ELEMENT_COUNT = 1_000_000;
+
+const TYPE_BY_LETTER: Record<string, PhpValue["type"]> = {
+	N: "null",
+	b: "bool",
+	i: "int",
+	d: "float",
+	s: "string",
+	a: "array",
+	O: "object",
+	C: "custom_object",
+	E: "enum",
+	R: "reference",
+	r: "reference",
+};
+
+const VALUE_HEADER = /^(?:N;|b:[01];|i:-?\d+;|d:[^;]+;|s:\d+:|a:\d+:\{|O:\d+:|C:\d+:|E:\d+:|[Rr]:\d+;)/;
+const FLOAT_LITERAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+/** Whether `text` starts like a serialized value. Only the first header is checked. */
+export function looksSerialized(text: string): boolean {
+	return VALUE_HEADER.test(text);
+}
 
 export function parse(input: string): PhpValue {
 	const parser = new Parser(input);
-	const result = parser.parseValue(0);
-
-	if (parser.position < input.length) {
-		throw new ParseError("Unexpected data after end of serialized value", parser.position, parser.getContext());
-	}
-
-	return result;
+	const value = parser.parseValue(0);
+	if (parser.position < input.length) throw parser.error("Unexpected data after end of serialized value");
+	return value;
 }
 
 class Parser {
 	position = 0;
-	private refIndex = 0;
-	private readonly parsedValues: PhpValue[] = [];
+	readonly #references = new ReferenceSlots();
 
-	constructor(private input: string) {}
+	constructor(private readonly input: string) {}
+
+	error(message: string, at = this.position): ParseError {
+		const before = this.input.slice(Math.max(0, at - 10), at);
+		const after = this.input.slice(at, at + 10);
+		return new ParseError(message, at, `${before}[HERE]${after}`);
+	}
 
 	parseValue(depth: number): PhpValue {
-		if (depth > MAX_DEPTH) {
-			throw new ParseError(`Maximum nesting depth of ${MAX_DEPTH} exceeded`, this.position, this.getContext());
+		if (depth > MAX_DEPTH) throw this.error(`Maximum nesting depth of ${MAX_DEPTH} exceeded`);
+
+		const letter = this.#peek();
+		const type = TYPE_BY_LETTER[letter];
+		if (type === undefined) throw this.error(`Unknown type identifier '${letter}'`);
+
+		if (type === "reference") {
+			const reference = this.#parseReference(letter === "r");
+			const problem = this.#references.add(reference);
+			if (problem) throw this.error(problem);
+			return reference;
 		}
 
-		this.refIndex++;
-		const currentIndex = this.refIndex;
-
-		const type = this.peek();
-		let parsedValue: PhpValue;
-
+		this.#references.add({ type });
 		switch (type) {
-			case "N":
-				parsedValue = this.parseNull();
-				break;
-			case "b":
-				parsedValue = this.parseBool();
-				break;
-			case "i":
-				parsedValue = this.parseInt();
-				break;
-			case "d":
-				parsedValue = this.parseFloat();
-				break;
-			case "s":
-				parsedValue = this.parseString();
-				break;
-			case "a":
-				parsedValue = this.parseArray(depth);
-				break;
-			case "O":
-				parsedValue = this.parseObject(depth);
-				break;
-			case "C":
-				parsedValue = this.parseCustomObject();
-				break;
-			case "E":
-				parsedValue = this.parseEnum();
-				break;
-			case "R":
-				parsedValue = this.parseReference(false);
-				break;
-			case "r":
-				parsedValue = this.parseReference(true);
-				break;
-			default:
-				throw new ParseError(`Unknown type identifier '${type}'`, this.position, this.getContext());
+			case "null":
+				this.#expect("N;");
+				return { type: "null" };
+			case "bool":
+				return this.#parseBool();
+			case "int":
+				return this.#parseInt();
+			case "float":
+				return this.#parseFloat();
+			case "string":
+				return this.#parseString();
+			case "array":
+				return this.#parseArray(depth);
+			case "object":
+				return this.#parseObject(depth);
+			case "custom_object":
+				return this.#parseCustomObject();
+			case "enum":
+				return this.#parseEnum();
 		}
-
-		this.parsedValues[currentIndex] = parsedValue;
-		return parsedValue;
 	}
 
-	private parseNull(): PhpValue {
-		this.expect("N");
-		this.expect(";");
-		return { type: "null" };
-	}
-
-	private parseBool(): PhpValue {
-		this.expect("b");
-		this.expect(":");
-		const value = this.readChar();
-		if (value !== "0" && value !== "1") {
-			throw new ParseError(`Expected '0' or '1' for boolean`, this.position - 1, this.getContext());
-		}
-		this.expect(";");
+	#parseBool(): PhpValue {
+		this.#expect("b:");
+		const value = this.#readChar();
+		if (value !== "0" && value !== "1") throw this.error("Expected '0' or '1' for boolean", this.position - 1);
+		this.#expect(";");
 		return { type: "bool", value: value === "1" };
 	}
 
-	private parseInt(): PhpValue {
-		this.expect("i");
-		this.expect(":");
-		const value = this.readNumber();
-		this.expect(";");
-		return { type: "int", value: Math.floor(value) };
+	#parseInt(): PhpInt {
+		this.#expect("i:");
+		const value = this.#readNumber();
+		this.#expect(";");
+		return { type: "int", value };
 	}
 
-	private parseFloat(): PhpValue {
-		this.expect("d");
-		this.expect(":");
-		const valueStr = this.readUntil(";");
-
-		let value: number;
-		if (valueStr === "INF") {
-			value = Infinity;
-		} else if (valueStr === "-INF") {
-			value = -Infinity;
-		} else if (valueStr === "NAN") {
-			value = NaN;
-		} else {
-			if (!isValidFloatLiteral(valueStr)) {
-				throw new ParseError(`Invalid float value '${valueStr}'`, this.position, this.getContext());
-			}
-
-			value = parseFloat(valueStr);
-			if (isNaN(value)) {
-				throw new ParseError(`Invalid float value '${valueStr}'`, this.position, this.getContext());
-			}
+	#parseFloat(): PhpValue {
+		this.#expect("d:");
+		const text = this.#readUntil(";");
+		let value = parseNonFiniteFloat(text);
+		if (value === undefined) {
+			if (!FLOAT_LITERAL.test(text)) throw this.error(`Invalid float value '${text}'`);
+			value = parseFloat(text);
 		}
-
-		this.expect(";");
+		this.#expect(";");
 		return { type: "float", value };
 	}
 
-	private parseString(): PhpValue {
-		this.expect("s");
-		this.expect(":");
-		const length = this.readNumber();
-		this.expect(":");
-		this.expect('"');
-
-		const value = this.readBytes(length);
-		this.expect('"');
-		this.expect(";");
-
-		const hasBinary = hasBinaryControlCharacters(value);
-
-		return { type: "string", value, binary: hasBinary ? true : undefined };
+	#parseString(): PhpString {
+		this.#expect("s:");
+		const value = this.#readQuoted();
+		this.#expect(";");
+		return { type: "string", value };
 	}
 
-	private parseArray(depth: number): PhpValue {
-		this.expect("a");
-		this.expect(":");
-		const count = this.readNonNegativeInteger("array element count");
-		this.expect(":");
-		this.expect("{");
+	#parseArray(depth: number): PhpValue {
+		this.#expect("a:");
+		const count = this.#readCount("array element count");
+		this.#expect(":{");
 
 		const entries: PhpArrayEntry[] = [];
-
 		for (let i = 0; i < count; i++) {
-			const keyType = this.peek();
-			let key: PhpValue;
+			const keyType = this.#peek();
+			let key: PhpArrayEntry["key"];
+			if (keyType === "i") key = this.#parseInt();
+			else if (keyType === "s") key = this.#parseString();
+			else throw this.error(`Array key must be integer or string, got '${keyType}'`);
 
-			if (keyType === "i") {
-				key = this.parseInt();
-			} else if (keyType === "s") {
-				key = this.parseString();
-			} else {
-				throw new ParseError(`Array key must be integer or string, got '${keyType}'`, this.position, this.getContext());
-			}
-
-			const value = this.parseValue(depth + 1);
-			entries.push({ key: key as PhpArrayEntry["key"], value });
+			entries.push({ key, value: this.parseValue(depth + 1) });
 		}
 
-		this.expect("}");
+		this.#expect("}");
 		return { type: "array", entries };
 	}
 
-	private parseObject(depth: number): PhpValue {
-		this.expect("O");
-		this.expect(":");
-		const classNameLength = this.readNumber();
-		this.expect(":");
-		this.expect('"');
-		const className = this.readBytes(classNameLength);
-		this.expect('"');
-		this.expect(":");
-		const propertyCount = this.readNonNegativeInteger("object property count");
-		this.expect(":");
-		this.expect("{");
+	#parseObject(depth: number): PhpValue {
+		this.#expect("O:");
+		const className = this.#readQuoted();
+		this.#expect(":");
+		const count = this.#readCount("object property count");
+		this.#expect(":{");
 
 		const properties: PhpObjectProperty[] = [];
-
-		for (let i = 0; i < propertyCount; i++) {
-			this.expect("s");
-			this.expect(":");
-			const nameLength = this.readNumber();
-			this.expect(":");
-			this.expect('"');
-			const rawName = this.readBytes(nameLength);
-			this.expect('"');
-			this.expect(";");
-
-			const { name, visibility, className: propClassName } = this.parsePropertyName(rawName, className);
-
-			const value = this.parseValue(depth + 1);
-			properties.push({ name, visibility, className: propClassName, value });
+		for (let i = 0; i < count; i++) {
+			const name = decodePropertyName(this.#parseString().value, className);
+			properties.push({ ...name, value: this.parseValue(depth + 1) });
 		}
 
-		this.expect("}");
+		this.#expect("}");
 		return { type: "object", className, properties };
 	}
 
-	private parseCustomObject(): PhpValue {
-		this.expect("C");
-		this.expect(":");
-		const classNameLength = this.readNumber();
-		this.expect(":");
-		this.expect('"');
-		const className = this.readBytes(classNameLength);
-		this.expect('"');
-		this.expect(":");
-		const payloadLength = this.readNumber();
-		this.expect(":");
-		this.expect("{");
-		const payload = this.readBytes(payloadLength);
-		this.expect("}");
-
-		return {
-			type: "custom_object",
-			className,
-			payload,
-			binary: hasBinaryControlCharacters(payload) ? true : undefined,
-		};
+	#parseCustomObject(): PhpValue {
+		this.#expect("C:");
+		const className = this.#readQuoted();
+		this.#expect(":");
+		const length = this.#readNumber();
+		this.#expect(":{");
+		const payload = this.#readBytes(length);
+		this.#expect("}");
+		return { type: "custom_object", className, payload };
 	}
 
-	private parseEnum(): PhpValue {
-		this.expect("E");
-		this.expect(":");
-		const enumNameLength = this.readNumber();
-		this.expect(":");
-		this.expect('"');
-		const enumName = this.readBytes(enumNameLength);
-		this.expect('"');
-		this.expect(";");
+	#parseEnum(): PhpValue {
+		this.#expect("E:");
+		const name = this.#readQuoted();
+		this.#expect(";");
 
-		const separator = enumName.indexOf(":");
-		if (separator <= 0 || separator === enumName.length - 1) {
-			throw new ParseError(`Invalid enum identifier '${enumName}'`, this.position, this.getContext());
-		}
-
-		return {
-			type: "enum",
-			className: enumName.slice(0, separator),
-			caseName: enumName.slice(separator + 1),
-		};
+		const separator = name.indexOf(":");
+		if (separator <= 0 || separator === name.length - 1) throw this.error(`Invalid enum identifier '${name}'`);
+		return { type: "enum", className: name.slice(0, separator), caseName: name.slice(separator + 1) };
 	}
 
-	private parsePropertyName(
-		rawName: string,
-		defaultClassName: string,
-	): {
-		name: string;
-		visibility: "public" | "protected" | "private";
-		className?: string;
-	} {
-		if (rawName.startsWith("\0*\0")) {
-			return { name: rawName.slice(3), visibility: "protected" };
-		}
-
-		if (rawName.startsWith("\0")) {
-			const endNull = rawName.indexOf("\0", 1);
-			if (endNull !== -1) {
-				const propClassName = rawName.slice(1, endNull);
-				const name = rawName.slice(endNull + 1);
-				return {
-					name,
-					visibility: "private",
-					className: propClassName !== defaultClassName ? propClassName : undefined,
-				};
-			}
-		}
-
-		return { name: rawName, visibility: "public" };
-	}
-
-	private parseReference(isObject: boolean): PhpValue {
-		this.expect(isObject ? "r" : "R");
-		this.expect(":");
-		const index = this.readNumber();
-		this.expect(";");
-
-		if (!Number.isSafeInteger(index) || index < 1) {
-			throw new ParseError(
-				`Reference index must be a positive integer, got '${index}'`,
-				this.position,
-				this.getContext(),
-			);
-		}
-		if (index >= this.refIndex) {
-			throw new ParseError(`Reference index ${index} points to an unresolved value`, this.position, this.getContext());
-		}
-
-		const target = this.resolveReferenceTarget(index);
-		if (!target) {
-			throw new ParseError(`Reference index ${index} does not exist`, this.position, this.getContext());
-		}
-
-		if (isObject && !isObjectLike(target)) {
-			throw new ParseError(
-				`Object reference index ${index} must point to an object-like value`,
-				this.position,
-				this.getContext(),
-			);
-		}
-
+	#parseReference(isObject: boolean): PhpValue & { type: "reference" } {
+		this.#expect(isObject ? "r:" : "R:");
+		const index = this.#readNumber();
+		this.#expect(";");
 		return { type: "reference", index, isObject };
 	}
 
-	private resolveReferenceTarget(index: number): PhpValue | null {
-		let current = this.parsedValues[index];
-		if (!current) return null;
-
-		const visited = new Set<number>();
-		let currentIndex = index;
-
-		while (current.type === "reference") {
-			if (visited.has(currentIndex)) return null;
-			visited.add(currentIndex);
-
-			currentIndex = current.index;
-			current = this.parsedValues[currentIndex];
-			if (!current) return null;
-		}
-
-		return current;
-	}
-
-	private peek(): string {
-		if (this.position >= this.input.length) {
-			throw new ParseError("Unexpected end of input", this.position, this.getContext());
-		}
+	#peek(): string {
+		if (this.position >= this.input.length) throw this.error("Unexpected end of input");
 		return this.input[this.position];
 	}
 
-	private readChar(): string {
-		if (this.position >= this.input.length) {
-			throw new ParseError("Unexpected end of input", this.position, this.getContext());
-		}
-		return this.input[this.position++];
+	#readChar(): string {
+		const char = this.#peek();
+		this.position++;
+		return char;
 	}
 
-	private expect(char: string): void {
-		const actual = this.readChar();
-		if (actual !== char) {
-			throw new ParseError(`Expected '${char}', got '${actual}'`, this.position - 1, this.getContext());
+	#expect(text: string): void {
+		for (const char of text) {
+			const actual = this.#readChar();
+			if (actual !== char) throw this.error(`Expected '${char}', got '${actual}'`, this.position - 1);
 		}
 	}
 
-	private readNumber(): number {
+	#readNumber(): number {
 		const start = this.position;
-		let hasDigits = false;
-
-		if (this.peek() === "-") {
+		if (this.#peek() === "-") this.position++;
+		const digitsStart = this.position;
+		while (this.position < this.input.length && this.input[this.position] >= "0" && this.input[this.position] <= "9") {
 			this.position++;
 		}
-
-		while (this.position < this.input.length && /[0-9]/.test(this.input[this.position])) {
-			this.position++;
-			hasDigits = true;
-		}
-
-		if (!hasDigits) {
-			throw new ParseError("Expected number", start, this.getContext());
-		}
-
+		if (this.position === digitsStart) throw this.error("Expected number", start);
 		return parseInt(this.input.slice(start, this.position), 10);
 	}
 
-	private readNonNegativeInteger(context: string): number {
-		const value = this.readNumber();
+	#readCount(what: string): number {
+		const value = this.#readNumber();
 		if (!Number.isSafeInteger(value) || value < 0) {
-			throw new ParseError(
-				`Expected non-negative integer for ${context}, got '${value}'`,
-				this.position,
-				this.getContext(),
-			);
+			throw this.error(`Expected non-negative integer for ${what}, got '${value}'`);
 		}
-		if (value > MAX_ELEMENT_COUNT) {
-			throw new ParseError(
-				`${context} of ${value} exceeds maximum of ${MAX_ELEMENT_COUNT}`,
-				this.position,
-				this.getContext(),
-			);
-		}
+		if (value > MAX_ELEMENT_COUNT) throw this.error(`${what} of ${value} exceeds maximum of ${MAX_ELEMENT_COUNT}`);
 		return value;
 	}
 
-	private readUntil(char: string): string {
+	#readUntil(char: string): string {
 		const start = this.position;
-		while (this.position < this.input.length && this.input[this.position] !== char) {
-			this.position++;
-		}
+		while (this.position < this.input.length && this.input[this.position] !== char) this.position++;
 		return this.input.slice(start, this.position);
 	}
 
-	private readBytes(length: number): string {
-		if (!Number.isSafeInteger(length) || length < 0) {
-			throw new ParseError("Expected non-negative byte length", this.position, this.getContext());
-		}
+	/** `<byte length>:"<text>"`, as used by strings, class names and enum names. */
+	#readQuoted(): string {
+		const length = this.#readNumber();
+		this.#expect(':"');
+		const text = this.#readBytes(length);
+		this.#expect('"');
+		return text;
+	}
+
+	#readBytes(length: number): string {
+		if (!Number.isSafeInteger(length) || length < 0) throw this.error("Expected non-negative byte length");
 
 		const start = this.position;
-		let byteCount = 0;
-
-		while (byteCount < length) {
-			if (this.position >= this.input.length) {
-				throw new ParseError(
-					`Expected ${length} bytes, but only ${byteCount} available`,
-					this.position,
-					this.getContext(),
-				);
+		let bytes = 0;
+		while (bytes < length) {
+			if (this.position >= this.input.length) throw this.error(`Expected ${length} bytes, but only ${bytes} available`);
+			const width = utf8Width(this.input, this.position);
+			if (width === 0) throw this.error("Invalid UTF-16 string: unpaired surrogate");
+			if (bytes + width > length) {
+				throw this.error(`Declared string length ${length} bytes does not align with UTF-8 sequence`);
 			}
-
-			const { codeUnits, utf8Bytes } = this.readUtf8CodePoint(this.position);
-			if (byteCount + utf8Bytes > length) {
-				throw new ParseError(
-					`Declared string length ${length} bytes does not align with UTF-8 sequence`,
-					this.position,
-					this.getContext(),
-				);
-			}
-
-			byteCount += utf8Bytes;
-			this.position += codeUnits;
+			bytes += width;
+			this.position += width === 4 ? 2 : 1;
 		}
-
 		return this.input.slice(start, this.position);
 	}
-
-	private readUtf8CodePoint(index: number): {
-		codeUnits: number;
-		utf8Bytes: number;
-	} {
-		const code = this.input.charCodeAt(index);
-
-		if (code <= 0x7f) {
-			return { codeUnits: 1, utf8Bytes: 1 };
-		}
-		if (code <= 0x7ff) {
-			return { codeUnits: 1, utf8Bytes: 2 };
-		}
-		if (code >= 0xd800 && code <= 0xdbff) {
-			const next = this.input.charCodeAt(index + 1);
-			if (Number.isNaN(next) || next < 0xdc00 || next > 0xdfff) {
-				throw new ParseError("Invalid UTF-16 string: unmatched high surrogate", index, this.getContext(index));
-			}
-			return { codeUnits: 2, utf8Bytes: 4 };
-		}
-		if (code >= 0xdc00 && code <= 0xdfff) {
-			throw new ParseError("Invalid UTF-16 string: unexpected low surrogate", index, this.getContext(index));
-		}
-
-		return { codeUnits: 1, utf8Bytes: 3 };
-	}
-
-	getContext(atPosition: number = this.position): string {
-		const start = Math.max(0, atPosition - 10);
-		const end = Math.min(this.input.length, atPosition + 10);
-		const before = this.input.slice(start, atPosition);
-		const after = this.input.slice(atPosition, end);
-		return `${before}[HERE]${after}`;
-	}
-}
-
-function isValidFloatLiteral(value: string): boolean {
-	return /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value);
-}
-
-function isObjectLike(value: PhpValue): boolean {
-	return value.type === "object" || value.type === "custom_object" || value.type === "enum";
 }

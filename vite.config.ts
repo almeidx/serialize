@@ -31,17 +31,11 @@ export default defineConfig({
 	],
 	test: {
 		include: ["src/**/*.test.ts"],
-		exclude: ["tests/e2e/**"],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "html"],
 			// Browser-only glue (worker, its client and the reactive session) is covered by the smoke tests.
-			exclude: [
-				"src/lib/processor/protocol.ts",
-				"src/lib/processor/worker.ts",
-				"src/lib/processor/client.ts",
-				"src/lib/processor/session.svelte.ts",
-			],
+			exclude: ["src/lib/processor/worker.ts", "src/lib/processor/client.ts", "src/lib/processor/session.svelte.ts"],
 			thresholds: {
 				lines: 83,
 				functions: 98,

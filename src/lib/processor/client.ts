@@ -1,9 +1,7 @@
-import type { JsonValue } from "#lib/converter/types.js";
-import type { DataResult, InputMode, InputResult } from "./process.js";
-import type { RequestResults, WorkerCall, WorkerRequest, WorkerResponse } from "./protocol.js";
+import type { Handlers, WorkerRequest, WorkerResponse } from "./worker.js";
 
 interface Pending {
-	resolve: (value: never) => void;
+	resolve: (value: unknown) => void;
 	reject: (error: Error) => void;
 }
 
@@ -20,8 +18,8 @@ function getWorker(): Worker {
 		const entry = pending.get(data.id);
 		if (!entry) return;
 		pending.delete(data.id);
-		if (data.type === "error") entry.reject(new Error(data.message));
-		else entry.resolve(data.value as never);
+		if (data.ok) entry.resolve(data.value);
+		else entry.reject(new Error(data.message));
 	};
 	worker.onerror = (event) => {
 		event.preventDefault();
@@ -34,19 +32,14 @@ function getWorker(): Worker {
 	return worker;
 }
 
-function call<T extends WorkerCall["type"]>(message: Extract<WorkerCall, { type: T }>): Promise<RequestResults[T]> {
-	const { promise, resolve, reject } = Promise.withResolvers<RequestResults[T]>();
+/** Runs a `process.ts` function in the worker. Arguments are structured-cloned, so pass raw (non-proxied) state. */
+export function run<K extends keyof Handlers>(
+	type: K,
+	...args: Parameters<Handlers[K]>
+): Promise<ReturnType<Handlers[K]>> {
+	const { promise, resolve, reject } = Promise.withResolvers<ReturnType<Handlers[K]>>();
 	const id = nextId++;
-	pending.set(id, { resolve, reject });
-	getWorker().postMessage({ ...message, id } satisfies WorkerRequest);
+	pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
+	getWorker().postMessage({ id, type, args } as WorkerRequest);
 	return promise;
-}
-
-export function processInput(mode: InputMode, text: string): Promise<InputResult> {
-	return call({ type: "input", mode, text });
-}
-
-/** `data` must be plain (e.g. from `$state.raw`): it is structured-cloned to the worker. */
-export function processData(mode: InputMode, data: JsonValue): Promise<DataResult> {
-	return call({ type: "data", mode, data });
 }

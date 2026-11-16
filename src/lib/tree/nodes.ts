@@ -1,7 +1,10 @@
-import type { JsonObject, JsonValue } from "../converter/types";
-import { phpArrayEntries, type TreePath } from "./operations";
+import { toJson } from "#lib/converter/json.js";
+import type { JsonValue } from "#lib/converter/types.js";
+import { encodeBase64Utf8 } from "#lib/converter/wrappers.js";
+import { formatFloat, parseNonFiniteFloat } from "#lib/parser/float.js";
+import type { TreePath } from "./operations.js";
+import { children, nextKey, shape, type Shape } from "./shape.js";
 
-/** What a node shows as, after unwrapping the PHP metadata wrappers from `converter/json.ts`. */
 export type Kind =
 	| "string"
 	| "number"
@@ -18,6 +21,10 @@ export type Kind =
 export const EDITABLE_KINDS = ["string", "number", "boolean", "null", "array", "object"] as const;
 export type EditableKind = (typeof EDITABLE_KINDS)[number];
 
+export function isEditableKind(kind: Kind): kind is EditableKind {
+	return (EDITABLE_KINDS as readonly Kind[]).includes(kind);
+}
+
 export interface TreeNode {
 	/** Stable across edits for the same path, so expansion survives updates. */
 	id: string;
@@ -26,166 +33,65 @@ export interface TreeNode {
 	key: string | number | null;
 	value: JsonValue;
 	kind: Kind;
+	/** Inline text for the row: the value for scalars, a short summary otherwise. */
+	summary: string;
+	/** Text for the inline editor; `undefined` when the value is not editable in place. */
+	editText: string | undefined;
+	/** Key an add starts from; `undefined` when the value takes no children. */
+	addKey: string | undefined;
 	children: TreeNode[];
 }
 
 const PREVIEW_LIMIT = 100;
 
-function asObject(value: JsonValue): JsonObject | null {
-	return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-
-export function kindOf(value: JsonValue): Kind {
-	if (value === null) return "null";
-	if (Array.isArray(value)) return "array";
-	if (typeof value === "object") {
-		switch (value.__php_type__) {
-			case "float":
-				return "number";
-			case "array":
-				return "array";
-			case "string":
-				return "binary";
-			case "reference":
-				return "reference";
-			case "custom_object":
-				return "custom_object";
-			case "enum":
-				return "enum";
-			default:
-				return "object";
-		}
-	}
-	return typeof value as "string" | "number" | "boolean";
-}
-
-export function isContainer(kind: Kind): boolean {
-	return kind === "array" || kind === "object";
-}
-
-/** `[pathKey, displayKey, value]` for each child, in PHP order. */
-function childEntries(value: JsonValue): Array<[string | number, string | number, JsonValue]> {
-	if (Array.isArray(value)) return value.map((child, index) => [index, index, child]);
-
-	const object = asObject(value);
-	if (!object) return [];
-
-	const type = object.__php_type__;
-	if (type === "array" || type === "object") {
-		const data = asObject(object.data ?? null);
-		if (!data) return [];
-		const entries = type === "array" ? phpArrayEntries(object) : [];
-		if (entries.length === 0) return Object.entries(data).map(([key, child]) => [key, key, child]);
-		return entries
-			.filter(({ dataKey }) => data[dataKey] !== undefined)
-			.map(({ key, dataKey }) => [dataKey, key.value, data[dataKey]]);
-	}
-	if (type !== undefined) return [];
-
-	return Object.entries(object)
-		.filter(([key]) => !key.startsWith("__php_"))
-		.map(([key, child]) => [key, key, child]);
-}
-
-function nodeId(path: TreePath): string {
-	if (path.length === 0) return "node-root";
-	const escaped = path.map((segment) =>
-		String(segment).replace(/[^a-zA-Z0-9_-]/g, (char) => `_${char.charCodeAt(0).toString(16)}`),
-	);
-	return `node-${escaped.join("--")}`;
-}
-
-function buildNode(value: JsonValue, path: TreePath, key: string | number | null): TreeNode {
-	const kind = kindOf(value);
-	return {
-		id: nodeId(path),
-		path,
-		key,
-		value,
-		kind,
-		children: isContainer(kind)
-			? childEntries(value).map(([pathKey, displayKey, child]) => buildNode(child, [...path, pathKey], displayKey))
-			: [],
-	};
-}
-
 /** A synthetic root holding the document as its only child, so the top-level value gets a row too. */
 export function buildTree(data: JsonValue): TreeNode {
-	return { id: "tree", path: [], key: null, value: null, kind: "null", children: [buildNode(data, [], null)] };
+	return {
+		id: "tree",
+		path: [],
+		key: null,
+		value: null,
+		kind: "null",
+		summary: "",
+		editText: undefined,
+		addKey: undefined,
+		children: [buildNode(data, [], null)],
+	};
 }
 
 /** Ids expanded on first render: the document and its direct children. */
 export function defaultExpanded(root: TreeNode): string[] {
 	const document = root.children[0];
-	if (!document) return [];
 	return [document, ...document.children].filter((node) => node.children.length > 0).map((node) => node.id);
 }
 
-/** Wrapper fields as text: strings verbatim, anything else as JSON. */
-function plain(value: JsonValue | undefined): string {
-	return typeof value === "string" ? value : (JSON.stringify(value) ?? "");
-}
-
-/** Inline text for a row: the value for scalars, a short summary for containers. */
-export function describe(node: TreeNode): string {
-	const { value, kind } = node;
-	const object = asObject(value);
-	switch (kind) {
-		case "string": {
-			const text = value as string;
-			return `"${text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT - 3)}...` : text}"`;
-		}
-		case "number":
-			return plain(object ? object.value : value);
-		case "boolean":
-		case "null":
-			return plain(value);
-		case "binary":
-			return `[binary: ${plain(object?.value)}]`;
-		case "reference":
-			return `ref(${plain(object?.__php_ref_index__)})`;
-		case "custom_object":
-			return `custom(${plain(object?.__php_class__)})`;
-		case "enum":
-			return `${plain(object?.__php_class__)}::${plain(object?.__php_enum_case__)}`;
-		case "array":
-			return `Array(${node.children.length})`;
-		case "object":
-			return typeof object?.__php_class__ === "string" ? object.__php_class__ : `Object(${node.children.length})`;
-	}
-}
-
-/** Text placed in the inline editor; `undefined` when the kind is not editable in place. */
-export function editText(node: TreeNode): string | undefined {
-	switch (node.kind) {
-		case "string":
-			return node.value as string;
-		case "number": {
-			const object = asObject(node.value);
-			return plain(object ? object.value : node.value);
-		}
-		case "boolean":
-		case "null":
-			return JSON.stringify(node.value);
-		default:
-			return undefined;
-	}
-}
-
-/** Value typed into the inline editor; `undefined` when it is not valid JSON for a non-string node. */
+/** Value typed into the inline editor; `undefined` when it is not valid for the node. A PHP float stays a float. */
 export function parseEdit(node: TreeNode, text: string): JsonValue | undefined {
 	if (node.kind === "string") return text;
-	try {
-		return JSON.parse(text) as JsonValue;
-	} catch {
-		return undefined;
+
+	let value = node.kind === "number" ? parseNonFiniteFloat(text.trim()) : undefined;
+	if (value === undefined) {
+		let parsed: JsonValue;
+		try {
+			parsed = JSON.parse(text) as JsonValue;
+		} catch {
+			return undefined;
+		}
+		if (typeof parsed !== "number") return parsed;
+		value = parsed;
 	}
+
+	const read = shape(node.value);
+	const wasFloat =
+		read.type === "float" ||
+		(read.type === "scalar" && typeof read.value === "number" && !Number.isInteger(read.value));
+	return wasFloat || !Number.isFinite(value) ? toJson({ type: "float", value }) : value;
 }
 
 export function convert(node: TreeNode, to: EditableKind): JsonValue {
 	switch (to) {
 		case "string":
-			return node.kind === "number" ? describe(node) : "";
+			return node.kind === "number" ? node.summary : "";
 		case "number":
 			return node.kind === "string" ? Number(node.value) || 0 : 0;
 		case "boolean":
@@ -197,4 +103,80 @@ export function convert(node: TreeNode, to: EditableKind): JsonValue {
 		case "object":
 			return {};
 	}
+}
+
+function buildNode(value: JsonValue, path: TreePath, key: string | number | null): TreeNode {
+	const read = shape(value);
+	const nodeChildren = children(read).map((child) => buildNode(child.value, [...path, child.key], child.label));
+	const kind = kindOf(read);
+	const summary = summarize(read, nodeChildren.length);
+	return {
+		id: nodeId(path),
+		path,
+		key,
+		value,
+		kind,
+		summary,
+		editText:
+			kind === "string"
+				? (value as string)
+				: kind === "number" || kind === "boolean" || kind === "null"
+					? summary
+					: undefined,
+		children: nodeChildren,
+		addKey: nextKey(read),
+	};
+}
+
+function kindOf(read: Shape): Kind {
+	switch (read.type) {
+		case "scalar":
+			return read.value === null ? "null" : (typeof read.value as "string" | "number" | "boolean");
+		case "list":
+			return "array";
+		case "map":
+			return "object";
+		case "float":
+			return "number";
+		case "string":
+			return "binary";
+		default:
+			return read.type;
+	}
+}
+
+function summarize(read: Shape, childCount: number): string {
+	switch (read.type) {
+		case "scalar":
+			if (typeof read.value === "string") {
+				const text = read.value.length > PREVIEW_LIMIT ? `${read.value.slice(0, PREVIEW_LIMIT - 3)}...` : read.value;
+				return `"${text}"`;
+			}
+			return typeof read.value === "number" ? formatFloat(read.value) : String(read.value);
+		case "float":
+			return formatFloat(read.value);
+		case "string":
+			return `[binary: ${encodeBase64Utf8(read.value)}]`;
+		case "reference":
+			return `ref(${read.index})`;
+		case "custom_object":
+			return `custom(${read.className})`;
+		case "enum":
+			return `${read.className}::${read.caseName}`;
+		case "list":
+		case "array":
+			return `Array(${childCount})`;
+		case "map":
+			return `Object(${childCount})`;
+		case "object":
+			return read.className;
+	}
+}
+
+function nodeId(path: TreePath): string {
+	if (path.length === 0) return "node-root";
+	const escaped = path.map((segment) =>
+		segment.replace(/[^a-zA-Z0-9_-]/g, (char) => `_${char.charCodeAt(0).toString(16)}`),
+	);
+	return `node-${escaped.join("--")}`;
 }

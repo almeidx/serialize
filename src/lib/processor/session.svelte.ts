@@ -1,8 +1,8 @@
 import type { JsonValue } from "#lib/converter/types.js";
-import type { Stats } from "#lib/stats.js";
 import { applyOperation, type TreeOperation } from "#lib/tree/operations.js";
-import { processData, processInput } from "./client.js";
+import { run } from "./client.js";
 import { detectFormat, type InputMode } from "./process.js";
+import type { Stats } from "./stats.js";
 
 const EXAMPLES: Record<InputMode, string> = {
 	php: 'a:4:{s:4:"user";O:4:"User":2:{s:4:"name";s:5:"Alice";s:5:"email";s:17:"alice@example.com";}s:5:"roles";a:2:{i:0;s:5:"admin";i:1;s:4:"user";}s:9:"loginTime";i:1704067200;s:8:"isActive";b:1;}',
@@ -46,13 +46,13 @@ export class Session {
 		if (mode === this.mode) return;
 		this.mode = mode;
 		if (this.data === undefined) void this.#parse();
-		else void this.#sync();
+		else void this.#sync(this.data);
 	}
 
 	edit(op: TreeOperation): void {
 		if (this.data === undefined) return;
 		this.data = applyOperation(this.data, op);
-		void this.#sync();
+		void this.#sync(this.data);
 	}
 
 	/** Text from the JSON output view; ignored until it is valid JSON. */
@@ -64,7 +64,7 @@ export class Session {
 			return;
 		}
 		this.data = data;
-		void this.#sync();
+		void this.#sync(data);
 	}
 
 	loadExample(): void {
@@ -73,9 +73,8 @@ export class Session {
 	}
 
 	clear(): void {
-		this.#latest++;
 		this.input = "";
-		this.#reset(null);
+		void this.#parse();
 	}
 
 	#reset(error: string | null): void {
@@ -92,7 +91,7 @@ export class Session {
 			return;
 		}
 		try {
-			const result = await processInput(this.mode, this.input);
+			const result = await run("input", this.mode, this.input);
 			if (id !== this.#latest) return;
 			this.data = result.data;
 			this.serialized = result.serialized;
@@ -103,10 +102,10 @@ export class Session {
 		}
 	}
 
-	async #sync(): Promise<void> {
+	async #sync(data: JsonValue): Promise<void> {
 		const id = ++this.#latest;
 		try {
-			const result = await processData(this.mode, this.data!);
+			const result = await run("data", this.mode, data);
 			if (id !== this.#latest) return;
 			this.input = result.input;
 			this.serialized = result.serialized;
