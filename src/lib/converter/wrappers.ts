@@ -1,8 +1,7 @@
 import type { PhpArrayEntry, PhpObjectProperty, PhpValue } from "../parser/types";
+import { hasBinaryControlCharacters } from "../parser/utf8";
 import type { JsonObject, JsonValue } from "./types";
 import {
-	hasBinaryControlCharacters,
-	makeUniqueArrayDataKey,
 	makeUniqueKey,
 	parseArrayDataKeys,
 	parseArrayKeyMetadataEntry,
@@ -85,7 +84,7 @@ export function toArrayWrapper(entries: PhpArrayEntry[], toJsonValue: (value: Ph
 
 	for (const [index, entry] of entries.entries()) {
 		const canonicalKey = String(originalKeys[index].value);
-		const dataKey = makeUniqueArrayDataKey(canonicalKey, usedDataKeys);
+		const dataKey = makeUniqueKey(canonicalKey, usedDataKeys);
 		usedDataKeys.add(dataKey);
 		dataKeys.push(dataKey);
 		data[dataKey] = toJsonValue(entry.value);

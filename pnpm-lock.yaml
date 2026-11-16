@@ -166,21 +166,12 @@ importers:
 
   .:
     dependencies:
-      '@zag-js/collapsible':
-        specifier: ^1.47.0
-        version: 1.47.0
       '@zag-js/menu':
-        specifier: ^1.47.0
-        version: 1.47.0
-      '@zag-js/slider':
         specifier: ^1.47.0
         version: 1.47.0
       '@zag-js/svelte':
         specifier: ^1.47.0
         version: 1.47.0(svelte@5.57.3)
-      '@zag-js/toggle-group':
-        specifier: ^1.47.0
-        version: 1.47.0
       '@zag-js/tree-view':
         specifier: ^1.47.0
         version: 1.47.0
@@ -1274,9 +1265,6 @@ packages:
   '@zag-js/anatomy@1.47.0':
     resolution: {integrity: sha512-3mQSujwBiEmF0SkYvQf5LBYSDKcV5CBu3Ncraxl6TqElimLzvHMGrrHmCLkVUB1Pi1uBqc6N08XuacGth3C2cQ==}
 
-  '@zag-js/collapsible@1.47.0':
-    resolution: {integrity: sha512-is/xEUzKLSlKoPD95Ym6K60BkmDnTcU9Kc326aK+qJioHa2Ffj5gqaDP7PTkscpe8rWDETLmGu/RdksBO/LMxQ==}
-
   '@zag-js/collection@1.47.0':
     resolution: {integrity: sha512-GMnmLfuf/fmUQKKkRaEPn7yIBye5S++GbNZSNJd9WtBZMHf5iu9+bsWSIQOt38O7lNUAmieoBD+k6w70bam2Vw==}
 
@@ -1304,16 +1292,10 @@ packages:
   '@zag-js/rect-utils@1.47.0':
     resolution: {integrity: sha512-7F3E6bPURhDzd9Ziq9FVjzZRIuksLmGNCiN4cCwLsKefLsgRcQNsW1SSIh2XLsm86adIWe8d0d5AYLLl3SYafQ==}
 
-  '@zag-js/slider@1.47.0':
-    resolution: {integrity: sha512-rQRiQnOQeeuWe7Gy1jtRO7h+ELhspFcBt9NR2+JpxOGN3sSNQcTmRXvmC6SDnI8NGdwLywYQTEdUAic9aDSnZg==}
-
   '@zag-js/svelte@1.47.0':
     resolution: {integrity: sha512-Lj1NMUM7n88kZH4ODcF7lxoWv117emaquiPCwmtC3gl/p67YVCxHpUWZSxzIvnzY5BvVjbjOkY4rJPOc0GZlLw==}
     peerDependencies:
       svelte: '>=5.29.0'
-
-  '@zag-js/toggle-group@1.47.0':
-    resolution: {integrity: sha512-OcvDrvOGX3cvPFqLAfnQ5936WN5kyCrXH8oimnry8xdkc8Q4i0IR4yqNWZ2ybBgfI1bKmm6xNhEXRUrIv3pYNA==}
 
   '@zag-js/tree-view@1.47.0':
     resolution: {integrity: sha512-jx3ckPnIBQNC3vwC1q7b+0LaBr0iv8bsSHxiOGHUdSq41c5iqhDVtVMFpjpZSDV+IMv0Hn245tB46HOo4rlNww==}
@@ -2536,14 +2518,6 @@ snapshots:
 
   '@zag-js/anatomy@1.47.0': {}
 
-  '@zag-js/collapsible@1.47.0':
-    dependencies:
-      '@zag-js/anatomy': 1.47.0
-      '@zag-js/core': 1.47.0
-      '@zag-js/dom-query': 1.47.0
-      '@zag-js/types': 1.47.0
-      '@zag-js/utils': 1.47.0
-
   '@zag-js/collection@1.47.0':
     dependencies:
       '@zag-js/utils': 1.47.0
@@ -2592,28 +2566,12 @@ snapshots:
 
   '@zag-js/rect-utils@1.47.0': {}
 
-  '@zag-js/slider@1.47.0':
-    dependencies:
-      '@zag-js/anatomy': 1.47.0
-      '@zag-js/core': 1.47.0
-      '@zag-js/dom-query': 1.47.0
-      '@zag-js/types': 1.47.0
-      '@zag-js/utils': 1.47.0
-
   '@zag-js/svelte@1.47.0(svelte@5.57.3)':
     dependencies:
       '@zag-js/core': 1.47.0
       '@zag-js/types': 1.47.0
       '@zag-js/utils': 1.47.0
       svelte: 5.57.3
-
-  '@zag-js/toggle-group@1.47.0':
-    dependencies:
-      '@zag-js/anatomy': 1.47.0
-      '@zag-js/core': 1.47.0
-      '@zag-js/dom-query': 1.47.0
-      '@zag-js/types': 1.47.0
-      '@zag-js/utils': 1.47.0
 
   '@zag-js/tree-view@1.47.0':
     dependencies:

@@ -1,8 +1,14 @@
 import type { JsonValue } from "../converter/json";
 import type { PhpArrayKey } from "../converter/types";
-import { makeUniqueArrayDataKey as makeUniqueArrayDataKeyShared } from "../converter/validation";
+import { makeUniqueKey } from "../converter/validation";
 
 export type TreePath = Array<string | number>;
+
+/** Every tree edit, applied through `applyOperation` so the tree and JSON views share one update path. */
+export type TreeOperation =
+	| { type: "set"; path: TreePath; value: JsonValue }
+	| { type: "delete"; path: TreePath }
+	| { type: "add"; path: TreePath; key: string; value: JsonValue };
 
 type JsonObject = Record<string, JsonValue>;
 type PhpWrappedContainer = JsonObject & {
@@ -53,12 +59,14 @@ function toPhpArrayKey(rawKey: string): PhpArrayKey {
 	return { type: "string", value: rawKey };
 }
 
-type PhpArrayMetadataEntry = {
+export type PhpArrayMetadataEntry = {
 	key: PhpArrayKey;
+	/** Key of the entry inside the wrapper's `data` object. */
 	dataKey: string;
 };
 
-function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMetadataEntry[] {
+/** Original keys of a PHP array wrapper, in order; empty for anything else. */
+export function phpArrayEntries(container: JsonObject): PhpArrayMetadataEntry[] {
 	if (container.__php_type__ !== "array") return [];
 	if (!Array.isArray(container.__php_original_keys__)) return [];
 
@@ -86,7 +94,16 @@ function getPhpArrayMetadataEntries(container: PhpWrappedContainer): PhpArrayMet
 	}));
 }
 
-const makeUniqueArrayDataKey = makeUniqueArrayDataKeyShared;
+export function applyOperation(data: JsonValue, op: TreeOperation): JsonValue {
+	switch (op.type) {
+		case "set":
+			return setValueAtPath(data, op.path, op.value);
+		case "delete":
+			return deleteAtPath(data, op.path);
+		case "add":
+			return addAtPath(data, op.path, op.key, op.value);
+	}
+}
 
 export function setValueAtPath(obj: JsonValue, path: TreePath, value: JsonValue): JsonValue {
 	if (path.length === 0) return value;
@@ -394,7 +411,7 @@ function withAddedPhpArrayKeyMetadata(
 	if (container.__php_type__ !== "array") return null;
 
 	const keyInfo = toPhpArrayKey(rawKey);
-	const entries = getPhpArrayMetadataEntries(container);
+	const entries = phpArrayEntries(container);
 
 	const existing = entries.find(
 		(entry) => entry.key.type === keyInfo.type && String(entry.key.value) === String(keyInfo.value),
@@ -404,7 +421,7 @@ function withAddedPhpArrayKeyMetadata(
 	}
 
 	const usedDataKeys = new Set(entries.map((entry) => entry.dataKey));
-	const dataKey = makeUniqueArrayDataKey(rawKey, usedDataKeys);
+	const dataKey = makeUniqueKey(rawKey, usedDataKeys);
 	const nextEntries = [...entries, { key: keyInfo, dataKey }];
 	const nextOriginalKeys = nextEntries.map((entry) => entry.key);
 	const nextDataKeys = nextEntries.map((entry) => entry.dataKey);
@@ -423,7 +440,7 @@ function withAddedPhpArrayKeyMetadata(
 function withoutPhpArrayKeyMetadata(container: PhpWrappedContainer, rawDataKey: string): PhpArrayMetadataPatch | null {
 	if (container.__php_type__ !== "array") return null;
 
-	const entries = getPhpArrayMetadataEntries(container);
+	const entries = phpArrayEntries(container);
 	if (entries.length === 0) return null;
 
 	let nextEntries: PhpArrayMetadataEntry[];

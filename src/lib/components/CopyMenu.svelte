@@ -1,169 +1,66 @@
 <script lang="ts">
+	import type { JsonValue } from '#lib/converter/types.js';
 	import * as menu from '@zag-js/menu';
-	import { mergeProps, normalizeProps, useMachine } from '@zag-js/svelte';
+	import { normalizeProps, useMachine } from '@zag-js/svelte';
 
-	interface Props {
-		getJsonPretty: () => string;
-		getJsonMinified: () => string;
-		getPhpSerialized: () => string;
-		disabled?: boolean;
-	}
+	let { data, serialized }: { data: JsonValue | undefined; serialized: string } = $props();
 
-	let {
-		getJsonPretty,
-		getJsonMinified,
-		getPhpSerialized,
-		disabled = false,
-	}: Props = $props();
+	const STATUS_MS = 2000;
 
-	let copied = $state<string | null>(null);
-	let copyFailed = $state(false);
-	let triggerButton = $state<HTMLButtonElement | null>(null);
-	let statusTimer: ReturnType<typeof setTimeout> | null = null;
+	const formats = [
+		['json-pretty', 'JSON (pretty)', () => JSON.stringify(data, null, 2)],
+		['json-minified', 'JSON (minified)', () => JSON.stringify(data)],
+		['php', 'PHP serialized', () => serialized],
+	] as const;
 
-	function scheduleStatusClear() {
-		if (statusTimer) clearTimeout(statusTimer);
-		statusTimer = setTimeout(() => {
-			copied = null;
-			copyFailed = false;
-		}, 2000);
-	}
+	let status = $state<'copied' | 'failed' | null>(null);
+	let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
-	async function copyToClipboard(text: string, label: string) {
+	async function copy(format: string) {
+		const text = formats.find(([value]) => value === format)?.[2]();
+		if (text === undefined) return;
 		try {
 			await navigator.clipboard.writeText(text);
-			copied = label;
-			copyFailed = false;
+			status = 'copied';
 		} catch {
-			copied = null;
-			copyFailed = true;
+			status = 'failed';
 		}
-		scheduleStatusClear();
-		triggerButton?.focus();
-	}
-
-	async function handleSelection(value: string) {
-		switch (value) {
-			case 'json-pretty':
-				await copyToClipboard(getJsonPretty(), 'pretty');
-				return;
-			case 'json-minified':
-				await copyToClipboard(getJsonMinified(), 'minified');
-				return;
-			case 'php-serialized':
-				await copyToClipboard(getPhpSerialized(), 'php');
-				return;
-		}
+		clearTimeout(statusTimer);
+		statusTimer = setTimeout(() => (status = null), STATUS_MS);
 	}
 
 	const service = useMachine(menu.machine, () => ({
 		id: 'copy-menu',
-		closeOnSelect: true,
-		'aria-label': 'Copy output format menu',
-		onSelect: (details) => {
-			void handleSelection(details.value);
-		},
+		positioning: { placement: 'bottom-end' as const, gutter: 4 },
+		onSelect: ({ value }) => void copy(value),
 	}));
-
 	const api = $derived(menu.connect(service, normalizeProps));
 
-	$effect(() => {
-		if (disabled && api.open) {
-			api.setOpen(false);
-		}
-	});
-
-	$effect(() => {
-		return () => {
-			if (statusTimer) clearTimeout(statusTimer);
-		};
-	});
+	$effect(() => () => clearTimeout(statusTimer));
 </script>
 
-<div class="relative copy-menu">
-	<button
-		bind:this={triggerButton}
-		{disabled}
-		{...mergeProps(api.getTriggerProps(), {
-			class:
-				'flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-		})}
-	>
-		{#if copyFailed}
-			<svg class="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-				<path
-					fill-rule="evenodd"
-					d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-			<span>Copy failed</span>
-		{:else if copied}
-			<svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-				<path
-					fill-rule="evenodd"
-					d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-			<span>Copied</span>
-		{:else}
-			<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-				/>
-			</svg>
-			<span>Copy</span>
-			<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-				<path
-					fill-rule="evenodd"
-					d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		{/if}
-	</button>
-
-	{#if api.open}
-		<div
-			{...mergeProps(api.getPositionerProps(), {
-				class: 'absolute right-0 mt-1 w-48 z-50',
-			})}
-		>
-			<div
-				{...mergeProps(api.getContentProps(), {
-					class:
-						'bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1',
-				})}
-			>
-				<button
-					{...mergeProps(api.getItemProps({ value: 'json-pretty' }), {
-						class:
-							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
-					})}
-				>
-					JSON (pretty)
-				</button>
-				<button
-					{...mergeProps(api.getItemProps({ value: 'json-minified' }), {
-						class:
-							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
-					})}
-				>
-					JSON (minified)
-				</button>
-				<button
-					{...mergeProps(api.getItemProps({ value: 'php-serialized' }), {
-						class:
-							'w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700',
-					})}
-				>
-					PHP Serialized
-				</button>
-			</div>
-		</div>
+<button
+	type="button"
+	class="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-raised hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
+	disabled={data === undefined}
+	{...api.getTriggerProps()}
+>
+	{#if status === 'copied'}
+		<span class="text-success">Copied</span>
+	{:else if status === 'failed'}
+		<span class="text-error">Copy failed</span>
+	{:else}
+		Copy
+		<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+			<path d="M4.4 6.4l3.4 3.4a.25.25 0 00.4 0l3.4-3.4a.25.25 0 00-.2-.4H4.6a.25.25 0 00-.2.4z" />
+		</svg>
 	{/if}
+</button>
+
+<div class="z-50" {...api.getPositionerProps()}>
+	<div class="min-w-40 rounded-lg border border-border bg-bg p-1 shadow-xl shadow-black/20 outline-none" {...api.getContentProps()}>
+		{#each formats as [value, label] (value)}
+			<div class="cursor-default rounded-md px-2.5 py-1.5 text-sm data-highlighted:bg-raised" {...api.getItemProps({ value })}>{label}</div>
+		{/each}
+	</div>
 </div>

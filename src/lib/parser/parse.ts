@@ -1,5 +1,5 @@
-import { hasBinaryControlCharacters } from "../converter/validation";
 import { ParseError, type PhpValue, type PhpArrayEntry, type PhpObjectProperty } from "./types";
+import { hasBinaryControlCharacters } from "./utf8";
 
 const MAX_DEPTH = 512;
 const MAX_ELEMENT_COUNT = 1_000_000;

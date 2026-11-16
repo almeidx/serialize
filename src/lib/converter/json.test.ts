@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PhpValue } from "../parser";
+import type { PhpValue } from "../parser/types";
 import { fromJson, toJson, type JsonValue } from "./json";
 
 describe("fromJson metadata validation", () => {

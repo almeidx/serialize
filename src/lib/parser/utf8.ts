@@ -23,3 +23,14 @@ export function utf8ByteLength(str: string): number {
 
 	return bytes;
 }
+
+/** Control characters other than tab/newline/carriage return mark a string as binary. */
+export function hasBinaryControlCharacters(value: string): boolean {
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		if (code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
+			return true;
+		}
+	}
+	return false;
+}

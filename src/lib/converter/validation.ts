@@ -154,19 +154,7 @@ export function parsePropertyOrder(value: JsonValue | undefined, data: JsonObjec
 	return order;
 }
 
-export function makeUniqueArrayDataKey(baseKey: string, usedKeys: Set<string>): string {
-	if (!usedKeys.has(baseKey)) return baseKey;
-
-	let counter = 2;
-	let candidate = `${baseKey}#${counter}`;
-	while (usedKeys.has(candidate)) {
-		counter++;
-		candidate = `${baseKey}#${counter}`;
-	}
-
-	return candidate;
-}
-
+/** Disambiguates repeated PHP keys (`key`, `key#2`, …) so they fit in one JSON object. */
 export function makeUniqueKey(baseKey: string, usedKeys: Set<string>): string {
 	if (!usedKeys.has(baseKey)) return baseKey;
 
@@ -178,14 +166,4 @@ export function makeUniqueKey(baseKey: string, usedKeys: Set<string>): string {
 	}
 
 	return candidate;
-}
-
-export function hasBinaryControlCharacters(value: string): boolean {
-	for (let i = 0; i < value.length; i++) {
-		const code = value.charCodeAt(i);
-		if ((code >= 0 && code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
-			return true;
-		}
-	}
-	return false;
 }

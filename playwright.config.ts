@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
 	testDir: "./tests/e2e",
-	fullyParallel: false,
+	testMatch: "*.smoke.spec.ts",
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
 	workers: process.env.CI ? 1 : undefined,
@@ -22,9 +22,11 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command: "pnpm dev --host 127.0.0.1 --port 4399",
+		// Build then serve the real static-asset server (wrangler dev, assets-only):
+		// exercises the prerendered page, the 404 page and _headers deployment.
+		command: "pnpm build && pnpm exec wrangler dev --port 4399",
 		url: "http://127.0.0.1:4399",
-		reuseExistingServer: false,
+		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,
 	},
 });

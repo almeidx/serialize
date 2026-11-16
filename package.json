@@ -11,6 +11,7 @@
 		"build:typecheck": "tsc --noEmit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"deploy": "wrangler deploy",
 		"dev": "vite dev",
 		"fmt": "oxlint --fix && oxfmt",
 		"lint": "svelte-kit sync && oxlint && oxfmt --check",
@@ -18,14 +19,12 @@
 		"test": "svelte-kit sync && vitest run",
 		"test:ci": "pnpm test:coverage",
 		"test:coverage": "svelte-kit sync && vitest run --coverage",
-		"test:e2e": "svelte-kit sync && playwright test"
+		"test:e2e": "pnpm test:smoke",
+		"test:smoke": "svelte-kit sync && playwright test"
 	},
 	"dependencies": {
-		"@zag-js/collapsible": "^1.47.0",
 		"@zag-js/menu": "^1.47.0",
-		"@zag-js/slider": "^1.47.0",
 		"@zag-js/svelte": "^1.47.0",
-		"@zag-js/toggle-group": "^1.47.0",
 		"@zag-js/tree-view": "^1.47.0",
 		"monaco-editor": "^0.57.0"
 	},
